@@ -120,7 +120,7 @@ void rf_receive(RadioParams radio, uint8_t * packet, uint8_t * len)
     uint8_t get_len[2] = {RX_PW_P0, 0};
     uint8_t rxd[2];
     HAL_SPI_TransmitReceive(radio.hspi, get_len, rxd, 2, 1000);
-    *len = rxd[1]
+    *len = rxd[1];
 
     // read packet
     if (*len != 0)

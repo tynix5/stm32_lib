@@ -2,6 +2,8 @@
 #include "nrf24.h"
 #include "stm32l4xx_hal.h"
 
+static void rf_disable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);
+static void rf_enable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);
 
 void rf_init(RadioParams radio)
 {

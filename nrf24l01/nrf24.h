@@ -117,7 +117,5 @@ void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len);
 uint8_t rf_listen(RadioParams radio, uint32_t timeout);
 void rf_receive(RadioParams radio, uint8_t * packet, uint8_t * len);
 // void rf_set_power_level(RadioParams radio, uint8_t power);
-static void rf_disable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);
-static void rf_enable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);
 
 #endif

@@ -4,7 +4,7 @@
 
 void rf_init(RadioParams radio)
 {
-    rf_disable();
+    radio.rf_disable();
 
     // power on reset, delay >10.3ms
     radio.delay_ms(20);

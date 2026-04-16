@@ -1,6 +1,11 @@
 
 #include "nrf24.h"
+
+#ifdef STM32L432xx
 #include "stm32l4xx_hal.h"
+#elifdef STM32F446xx
+#include "stm32f4xx_hal.h"
+#endif
 
 static void rf_disable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);
 static void rf_enable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);

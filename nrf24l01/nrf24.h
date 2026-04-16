@@ -1,11 +1,16 @@
 
-#ifndef rf_H_
-#define rf_H_
+#ifndef RF_H_
+#define RF_H_
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+
+#ifdef STM32L432xx
 #include "stm32l4xx_hal.h"
+#elifdef STM32F446xx
+#include "stm32f4xx_hal.h"
+#endif
 
 #define RADIO_MODE_TX           1
 #define RADIO_MODE_RX           0

@@ -8,7 +8,7 @@
 
 #ifdef STM32L432xx
 #include "stm32l4xx_hal.h"
-#elifdef STM32F446xx
+#elif defined(STM32F446xx)
 #include "stm32f4xx_hal.h"
 #endif
 

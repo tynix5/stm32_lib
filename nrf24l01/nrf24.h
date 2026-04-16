@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include "stm32l4xx_hal.h"
 
 #define RADIO_MODE_TX           1
 #define RADIO_MODE_RX           0
@@ -93,13 +94,13 @@
 
 typedef struct {
 
-    uint8_t (*spi_transfer_byte)(uint8_t, uint8_t);                        // (address, data)
-    void (*spi_transfer)(uint8_t, uint8_t *, uint8_t *, uint8_t);          // (address, data[], data_rcv[], len)
+    SPI_HandleTypeDef * hspi;
+
     void (*delay_us)(uint32_t);
     void (*delay_ms)(uint32_t);
 
-    void (*rf_disable)(void);
-    void (*rf_enable)(void);
+    GPIO_TypeDef * ce_gpio;
+    uint16_t ce_pin;
 
     uint64_t this_addr;
     uint64_t node_addr;
@@ -115,6 +116,8 @@ void rf_init(RadioParams radio);
 void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len);
 uint8_t rf_listen(RadioParams radio, uint32_t timeout);
 void rf_receive(RadioParams radio, uint8_t * packet, uint8_t * len);
-void rf_set_power_level(RadioParams radio, uint8_t power);
+// void rf_set_power_level(RadioParams radio, uint8_t power);
+static void rf_disable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);
+static void rf_enable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);
 
 #endif

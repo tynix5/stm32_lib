@@ -1,6 +1,6 @@
 
-#ifndef NRF24_H_
-#define NRF24_H_
+#ifndef rf_H_
+#define rf_H_
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -98,11 +98,12 @@ typedef struct {
     void (*delay_us)(uint32_t);
     void (*delay_ms)(uint32_t);
 
-    void (*ce_low)(void);
-    void (*ce_high)(void);
+    void (*rf_disable)(void);
+    void (*rf_enable)(void);
 
     uint64_t this_addr;
     uint64_t node_addr;
+
 } RadioParams;
 
 typedef struct {
@@ -110,10 +111,10 @@ typedef struct {
     uint16_t batt_lvl;
 } PacketParams;
 
-void nrf_init(RadioParams radio);
-void nrf_send(RadioParams radio, uint8_t * bytes, uint8_t len);
-uint8_t nrf_listen(RadioParams radio, uint32_t timeout);
-void nrf_receive(RadioParams radio, uint8_t * packet, uint8_t * len);
-void nrf_set_power_level(RadioParams radio, uint8_t power);
+void rf_init(RadioParams radio);
+void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len);
+uint8_t rf_listen(RadioParams radio, uint32_t timeout);
+void rf_receive(RadioParams radio, uint8_t * packet, uint8_t * len);
+void rf_set_power_level(RadioParams radio, uint8_t power);
 
 #endif

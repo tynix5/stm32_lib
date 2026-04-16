@@ -2,13 +2,15 @@
 #include "nrf24.h"
 
 
-void nrf_init(RadioParams radio)
+void rf_init(RadioParams radio)
 {
+    rf_disable();
+
     // power on reset, delay >10.3ms
     radio.delay_ms(20);
 
     // PWR_UP = 1, wait >1.5ms for start-up
-    radio.ce_low();
+    radio.rf_disable();
     radio.spi_transfer_byte(CONFIG | W_REGISTER, PWR_UP);
     radio.delay_ms(2);
 
@@ -33,13 +35,13 @@ void nrf_init(RadioParams radio)
     // radio module should be in standby mode after exiting
 }
 
-void nrf_send(RadioParams radio, uint8_t * bytes, uint8_t len)
+void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len)
 {
     if (len > MAX_PKT_SIZE)
         return;
 
     // ensure mode is in standby before placing in tx mode
-    radio.ce_low();
+    radio.rf_disable();
     radio.spi_transfer_byte(CONFIG | W_REGISTER, PWR_UP);
 
     // write with NO_ACK
@@ -49,20 +51,20 @@ void nrf_send(RadioParams radio, uint8_t * bytes, uint8_t len)
     radio.spi_transfer(W_TX_PAYLOAD_NOACK, bytes, temp, len);
 
     // transmitter --> PRIM_RX = 0, CE = 1 for >10us and <4ms and TX FIFO not empty
-    radio.ce_high();
+    radio.rf_enable();
     radio.delay_ms(1);
-    radio.ce_low();
+    radio.rf_disable();
 
     while (!(radio.spi_transfer_byte(STATUS, 0) & TX_DS));      // wait for packet to be sent
     radio.spi_transfer_byte(STATUS | W_REGISTER, TX_DS);        // clear data sent flag
 }
 
-uint8_t nrf_listen(RadioParams radio, uint32_t timeout)
+uint8_t rf_listen(RadioParams radio, uint32_t timeout)
 {
     // receiver --> PRIM_RX = 1, CE = 1
-    radio.ce_low();
+    radio.rf_disable();
     radio.spi_transfer_byte(CONFIG | W_REGISTER, PWR_UP | PRIM_RX);
-    radio.ce_high();
+    radio.rf_enable();
     radio.delay_ms(1);           // wait >130us for RX settling
 
     // either poll continuously or wait for IRQ and timeout after certain period of time
@@ -82,7 +84,7 @@ uint8_t nrf_listen(RadioParams radio, uint32_t timeout)
     return 0;
 }
 
-void nrf_receive(RadioParams radio, uint8_t * packet, uint8_t * len)
+void rf_receive(RadioParams radio, uint8_t * packet, uint8_t * len)
 {
     // get length of data packet from data pipe
     *len = radio.spi_transfer_byte(RX_PW_P0, 0);

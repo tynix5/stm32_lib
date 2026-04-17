@@ -59,6 +59,12 @@ void rf_init(RadioParams radio)
     HAL_SPI_Transmit(radio.hspi, rx_addr, 6, 1000);
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
 
+    // enable writes to feature register
+    uint8_t activate[2] = {ACTIVATE, 0x73};
+    HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(radio.hspi, activate, 2, 1000);    
+    HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
+
     // active dynamic ACK (for no ACKs)
     uint8_t feature[2] = {FEATURE | W_REGISTER, EN_DYN_ACK};
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
@@ -80,11 +86,17 @@ void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len)
     HAL_SPI_Transmit(radio.hspi, pwr_up, 2, 1000);
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
 
-    // write with NO_ACK
-    uint8_t w_no_ack[2] = {ACTIVATE, 0x73};
+    // unlock NO_ACK writes
+    uint8_t activate[2] = {ACTIVATE, 0x73};
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(radio.hspi, w_no_ack, 2, 1000);    
+    HAL_SPI_Transmit(radio.hspi, activate, 2, 1000);    
+    HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
+
     // write data to TX buffer
+    uint8_t w_no_ack = W_TX_PAYLOAD_NOACK;
+
+    HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(radio.hspi, &w_no_ack, 1, 1000);
     HAL_SPI_Transmit(radio.hspi, bytes, len, 1000);
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
 

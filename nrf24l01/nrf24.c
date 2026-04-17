@@ -10,6 +10,7 @@
 static void rf_disable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);
 static void rf_enable(GPIO_TypeDef * ce_gpio, uint16_t ce_pin);
 
+// change this init completely
 void rf_init(RadioParams radio)
 {
     rf_disable(radio.ce_gpio, radio.ce_pin);
@@ -71,6 +72,7 @@ void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len)
     rf_disable(radio.ce_gpio, radio.ce_pin);
 
     // wait for packet to be transmitted
+    /*
     uint8_t status;
     do {
 
@@ -80,6 +82,7 @@ void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len)
         status = rxd[1];
 
     } while (!(status & TX_DS));
+     */
 
     // clear data sent flag
     uint8_t clear_ds[2] = {STATUS | W_REGISTER, TX_DS};
@@ -92,7 +95,7 @@ uint8_t rf_listen(RadioParams radio, uint32_t timeout)
     rf_disable(radio.ce_gpio, radio.ce_pin);
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX};
     HAL_SPI_Transmit(radio.hspi, en_rx, 2, 1000);
-    rf_enable(radio.ce_gpio, radio.ce_pin);
+    rf_enable(radio.ce_gpio, radio.ce_pin);         // change this awfulness
     radio.delay_ms(1);           // wait >130us for RX settling
 
     // either poll continuously or wait for IRQ and timeout after certain period of time

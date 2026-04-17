@@ -105,7 +105,9 @@ typedef struct {
     void (*delay_ms)(uint32_t);
 
     GPIO_TypeDef * ce_gpio;
+    GPIO_TypeDef * cs_gpio;
     uint16_t ce_pin;
+    uint16_t cs_pin;
 
     uint64_t this_addr;
     uint64_t node_addr;

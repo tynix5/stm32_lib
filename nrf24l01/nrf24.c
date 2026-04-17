@@ -139,12 +139,10 @@ uint8_t rf_listen(RadioParams radio, uint32_t timeout)
     while (ticks < timeout)
     {
         uint8_t status;
-        uint8_t txd[2] = {STATUS, 0};
-        uint8_t rxd[2];
+        uint8_t nop = NOP;
         HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
-        HAL_SPI_TransmitReceive(radio.hspi, txd, rxd, 2, 1000);
+        HAL_SPI_TransmitReceive(radio.hspi, &nop, &status, 2, 1000);
         HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
-        status = rxd[1];
 
         if (status & RX_DR)     // if data has been received, exit
         {

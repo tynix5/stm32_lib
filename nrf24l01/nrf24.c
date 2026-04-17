@@ -21,7 +21,7 @@ void rf_init(RadioParams radio)
 
     // PWR_UP = 1, wait >1.5ms for start-up
     rf_disable(radio.ce_gpio, radio.ce_pin);
-    uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP};
+    uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP | EN_CRC};
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(radio.hspi, pwr_up, 2, 1000);
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
@@ -56,8 +56,14 @@ void rf_init(RadioParams radio)
         RX_ADDR_P0 | W_REGISTER,
         (uint8_t) radio.this_addr, (uint8_t) (radio.this_addr >> 8), (uint8_t) (radio.this_addr >> 16), (uint8_t) (radio.this_addr >> 24), (uint8_t) (radio.this_addr >> 32)};
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
-        HAL_SPI_Transmit(radio.hspi, rx_addr, 6, 1000);
-        HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
+    HAL_SPI_Transmit(radio.hspi, rx_addr, 6, 1000);
+    HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
+
+    // active dynamic ACK (for no ACKs)
+    uint8_t feature[2] = {FEATURE | W_REGISTER, EN_DYN_ACK};
+    HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(radio.hspi, feature, 2, 1000);
+    HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
 
     // radio module should be in standby mode after exiting
 }
@@ -69,19 +75,16 @@ void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len)
 
     // ensure mode is in standby before placing in tx mode
     rf_disable(radio.ce_gpio, radio.ce_pin);
-    uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP};
+    uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP | EN_CRC};
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(radio.hspi, pwr_up, 2, 1000);
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
 
     // write with NO_ACK
-    uint8_t w_no_ack[2] = {ACTIVATE | W_REGISTER, 0x73};
+    uint8_t w_no_ack[2] = {ACTIVATE, 0x73};
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(radio.hspi, w_no_ack, 2, 1000);
-    HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
-    
+    HAL_SPI_Transmit(radio.hspi, w_no_ack, 2, 1000);    
     // write data to TX buffer
-    HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(radio.hspi, bytes, len, 1000);
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
 
@@ -94,12 +97,10 @@ void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len)
     uint8_t status;
     do {
 
-        uint8_t txd[2] = {STATUS, 0};
-        uint8_t rxd[2];
+        uint8_t nop = NOP;
         HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
-        HAL_SPI_TransmitReceive(radio.hspi, txd, rxd, 2, 1000);
+        HAL_SPI_TransmitReceive(radio.hspi, &nop, &status, 1, 1000);
         HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);
-        status = rxd[1];
 
     } while (!(status & TX_DS));
 
@@ -114,7 +115,7 @@ uint8_t rf_listen(RadioParams radio, uint32_t timeout)
 {
     // receiver --> PRIM_RX = 1, CE = 1
     rf_disable(radio.ce_gpio, radio.ce_pin);
-    uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX};
+    uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(radio.hspi, en_rx, 2, 1000);
     HAL_GPIO_WritePin(radio.cs_gpio, radio.cs_pin, GPIO_PIN_SET);

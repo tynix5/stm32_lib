@@ -95,6 +95,9 @@
 #define MAX_RT                  (1 << 4)
 #define RX_P_NO                 (1 << 1) | (1 << 2) | (1 << 3)
 #define TX_FULL                 (1 << 0)
+
+// FEATURE
+#define EN_DYN_ACK              (1 << 0)
 /************************************************************/
 
 typedef struct {

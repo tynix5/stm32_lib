@@ -53,14 +53,20 @@ void rf_init(RadioParams * radio)
         (uint8_t) radio->this_addr, (uint8_t) (radio->this_addr >> 8), (uint8_t) (radio->this_addr >> 16), (uint8_t) (radio->this_addr >> 24), (uint8_t) (radio->this_addr >> 32)};
     rf_spi_transmit(radio, rx_addr, 6);
 
-    // enable writes to DYNPD register
+
+    // enable writes to any special function register
     uint8_t activate[2] = {ACTIVATE, 0x73};
     rf_spi_transmit(radio, activate, 2);
 
+    // enable dynamic payload length for pipe 0
     uint8_t en_dp[2] = {DYNPD, DPL_P0};
     rf_spi_transmit(radio, en_dp, 2);
 
-    // enable dynamic ACK (for no ACKs)
+    // enable auto-acknowledgement for pipe 0(required for dynamic payload length)
+    uint8_t en_aa[2] = {EN_AA, ENAA_P0};
+    rf_spi_transmit(radio, en_aa, 2);
+
+    // enable dynamic ACK, dynamic payload length, payload with ack
     uint8_t feature[2] = {FEATURE | W_REGISTER, EN_DPL | EN_ACK_PAY | EN_DYN_ACK};
     rf_spi_transmit(radio, feature, 2);
 
@@ -107,10 +113,6 @@ void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len)
     uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP | EN_CRC};
     rf_spi_transmit(radio, pwr_up, 2);
 
-    // enable auto-acknowledgement
-    uint8_t en_ack[2] = {EN_AA | W_REGISTER, ENAA_P0};
-    rf_spi_transmit(radio, en_ack, 2);
-
     // write data to TX buffer
     uint8_t w_ack = W_TX_PAYLOAD;
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
@@ -139,8 +141,8 @@ uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     rf_spi_transmit(radio, en_rx, 2);
 
-    uint8_t rx_pw[2] = {RX_PW_P0 | W_REGISTER, 1};
-    rf_spi_transmit(radio, rx_pw, 2);
+    // uint8_t rx_pw[2] = {RX_PW_P0 | W_REGISTER, 1};
+    // rf_spi_transmit(radio, rx_pw, 2);
 
     rf_enable(radio);
     radio->delay_ms(1);           // wait >130us for RX settling

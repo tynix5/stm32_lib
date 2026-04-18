@@ -15,6 +15,8 @@
 #define RADIO_MODE_TX           1
 #define RADIO_MODE_RX           0
 
+#define DEFAULT_TIMEOUT         1000
+
 #define MAX_RF_CONN             5
 
 #define MAX_PKT_SIZE            32
@@ -122,10 +124,10 @@ typedef struct {
     uint16_t batt_lvl;
 } PacketParams;
 
-void rf_init(RadioParams radio);
-void rf_send(RadioParams radio, uint8_t * bytes, uint8_t len);
-uint8_t rf_listen(RadioParams radio, uint32_t timeout);
-void rf_receive(RadioParams radio, uint8_t * packet, uint8_t * len);
+void rf_init(RadioParams * radio);
+void rf_send(RadioParams * radio, uint8_t * bytes, uint8_t len);
+uint8_t rf_listen(RadioParams * radio, uint32_t timeout);
+void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len);
 // void rf_set_power_level(RadioParams radio, uint8_t power);
 
 #endif

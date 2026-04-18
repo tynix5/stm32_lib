@@ -173,7 +173,7 @@ static uint8_t rf_read_status(RadioParams * radio)
 static void rf_spi_transmit(RadioParams * radio, uint8_t * data, uint8_t len)
 {
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(radio->hspi, &data, len, DEFAULT_TIMEOUT);
+    HAL_SPI_Transmit(radio->hspi, data, len, DEFAULT_TIMEOUT);
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
 }
 

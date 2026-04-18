@@ -15,7 +15,7 @@
 #define RADIO_MODE_TX           1
 #define RADIO_MODE_RX           0
 
-#define DEFAULT_TIMEOUT         1000
+#define HAL_TIMEOUT             1000
 
 #define MAX_RF_CONN             5
 
@@ -106,7 +106,17 @@
 #define RX_P_NO                 (1 << 1) | (1 << 2) | (1 << 3)
 #define TX_FULL                 (1 << 0)
 
+// DYNPD
+#define DPL_P5                  (1 << 5)
+#define DPL_P4                  (1 << 4)
+#define DPL_P3                  (1 << 3)
+#define DPL_P2                  (1 << 2)
+#define DPL_P1                  (1 << 1)
+#define DPL_P0                  (1 << 0)
+
 // FEATURE
+#define EN_DPL                  (1 << 2)
+#define EN_ACK_PAY              (1 << 1)
 #define EN_DYN_ACK              (1 << 0)
 /************************************************************/
 
@@ -117,24 +127,27 @@ typedef struct {
     void (*delay_us)(uint32_t);
     void (*delay_ms)(uint32_t);
 
+    /************** Pin Definitions ***********/
     GPIO_TypeDef * ce_gpio;
     GPIO_TypeDef * cs_gpio;
     uint16_t ce_pin;
     uint16_t cs_pin;
+    /******************************************/
+
+    uint8_t freq_ch;
+    uint8_t data_rate;
+    uint8_t rf_pwr;
 
     uint64_t this_addr;
     uint64_t node_addr;
 
 } RadioParams;
 
-typedef struct {
-
-    uint16_t batt_lvl;
-} PacketParams;
-
 void rf_init(RadioParams * radio);
-void rf_send(RadioParams * radio, uint8_t * bytes, uint8_t len);
-uint8_t rf_listen(RadioParams * radio, uint32_t timeout);
+void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len);
+void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len);
+uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout);
+uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout);
 void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len);
 // void rf_set_power_level(RadioParams radio, uint8_t power);
 

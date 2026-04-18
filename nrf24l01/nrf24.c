@@ -151,6 +151,9 @@ uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     rf_spi_transmit(radio, en_rx, 2);
 
+    uint8_t rx_pw[2] = {RX_PW_P0, 1};
+    rf_spi_transmit(radio, rx_pw, 2);
+
     rf_enable(radio);
     radio->delay_ms(1);           // wait >130us for RX settling
 
@@ -224,7 +227,6 @@ void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
     uint8_t width[2];
     rf_spi_transmit_receive(radio, rx_pl, width, 2);
     *len = width[1];
-    *len = 1;
 
     // read packet
     if (*len != 0)

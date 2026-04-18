@@ -62,6 +62,8 @@ void rf_init(RadioParams * radio)
     
     // disable writes
     rf_spi_transmit(radio, activate, 2);
+    // activate writes
+    rf_spi_transmit(radio, activate, 2);
 
     // enable dynamic ACK (for no ACKs)
     uint8_t feature[2] = {FEATURE | W_REGISTER, EN_DPL | EN_ACK_PAY | EN_DYN_ACK};

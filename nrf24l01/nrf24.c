@@ -59,11 +59,6 @@ void rf_init(RadioParams * radio)
 
     uint8_t en_dp[2] = {DYNPD, DPL_P0};
     rf_spi_transmit(radio, en_dp, 2);
-    
-    // disable writes
-    rf_spi_transmit(radio, activate, 2);
-    // activate writes
-    rf_spi_transmit(radio, activate, 2);
 
     // enable dynamic ACK (for no ACKs)
     uint8_t feature[2] = {FEATURE | W_REGISTER, EN_DPL | EN_ACK_PAY | EN_DYN_ACK};
@@ -82,19 +77,12 @@ void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len)
     uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP | EN_CRC};
     rf_spi_transmit(radio, pwr_up, 2);
 
-    // unlock NO_ACK writes
-    uint8_t activate[2] = {ACTIVATE, 0x73};
-    rf_spi_transmit(radio, activate, 2);
-
     // write data to TX buffer
     uint8_t w_no_ack = W_TX_PAYLOAD_NOACK;
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(radio->hspi, &w_no_ack, 1, HAL_TIMEOUT);
     HAL_SPI_Transmit(radio->hspi, packet, len, HAL_TIMEOUT);
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
-
-    // deactivate writes
-    rf_spi_transmit(radio, activate, 2);
 
     // transmitter --> PRIM_RX = 0, CE = 1 for >10us and <4ms and TX FIFO not empty
     rf_enable(radio);
@@ -184,10 +172,6 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     rf_spi_transmit(radio, en_rx, 2);
 
-    // enable writes to W_ACK_PAYLOAD register
-    uint8_t activate[2] = {ACTIVATE, 0x73};
-    rf_spi_transmit(radio, activate, 2);
-
     uint8_t w_ack_payload = W_ACK_PAYLOAD;
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(radio->hspi, &w_ack_payload, 1, HAL_TIMEOUT);
@@ -219,10 +203,6 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
 
 void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
 {
-    // get length of data packet from data pipe
-    uint8_t activate[2] = {ACTIVATE, 0x73};
-    rf_spi_transmit(radio, activate, 2);
-
     uint8_t rx_pl[2] = {R_RX_PL_WID, 0};
     uint8_t width[2];
     rf_spi_transmit_receive(radio, rx_pl, width, 2);

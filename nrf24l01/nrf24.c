@@ -191,7 +191,7 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
 
     uint8_t w_ack_payload = W_ACK_PAYLOAD;
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(radio->hspi, &w_ack_payload, 1, HAL_TIMEOUT);)
+    HAL_SPI_Transmit(radio->hspi, &w_ack_payload, 1, HAL_TIMEOUT);
     HAL_SPI_Transmit(radio->hspi, response, rlen, HAL_TIMEOUT);
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
 

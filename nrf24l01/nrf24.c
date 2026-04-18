@@ -224,6 +224,7 @@ void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
     uint8_t width[2];
     rf_spi_transmit_receive(radio, rx_pl, width, 2);
     *len = width[1];
+    *len = 1;
 
     // read packet
     if (*len != 0)

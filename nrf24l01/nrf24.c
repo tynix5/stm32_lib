@@ -59,11 +59,11 @@ void rf_init(RadioParams * radio)
     rf_spi_transmit(radio, activate, 2);
 
     // enable dynamic payload length for pipe 0
-    uint8_t en_dp[2] = {DYNPD, DPL_P0};
+    uint8_t en_dp[2] = {DYNPD | W_REGISTER, DPL_P0};
     rf_spi_transmit(radio, en_dp, 2);
 
     // enable auto-acknowledgement for pipe 0(required for dynamic payload length)
-    uint8_t en_aa[2] = {EN_AA, ENAA_P0};
+    uint8_t en_aa[2] = {EN_AA | W_REGISTER, ENAA_P0};
     rf_spi_transmit(radio, en_aa, 2);
 
     // enable dynamic ACK, dynamic payload length, payload with ack

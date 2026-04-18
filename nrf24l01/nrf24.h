@@ -145,7 +145,7 @@ typedef struct {
 
 void rf_init(RadioParams * radio);
 void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len);
-void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len);
+void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len, uint8_t * ack, uint8_t * alen);
 uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout);
 uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout);
 void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len);

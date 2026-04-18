@@ -106,6 +106,9 @@ uint8_t rf_listen(RadioParams * radio, uint32_t timeout)
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     rf_spi_transmit(radio, en_rx, 2);
 
+    uint8_t payload_width[2] = {RX_PW_P0 | W_REGISTER, 1};
+    rf_spi_transmit(radio, payload_width, 2);
+
     rf_enable(radio);
     radio->delay_ms(1);           // wait >130us for RX settling
 
@@ -115,6 +118,7 @@ uint8_t rf_listen(RadioParams * radio, uint32_t timeout)
     {
         if (rf_read_status(radio) & RX_DR)              // if data has been received, exit
         {
+            rf_disable(radio);
             uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
             rf_spi_transmit(radio, clear_dr, 2);
             return 1;

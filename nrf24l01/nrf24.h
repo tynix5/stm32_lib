@@ -72,6 +72,14 @@
 #define PWR_UP                  (1 << 1)
 #define PRIM_RX                 (1 << 0)
 
+// EN_AA
+#define ENAA_P5                 (1 << 5)
+#define ENAA_P4                 (1 << 4)
+#define ENAA_P3                 (1 << 3)
+#define ENAA_P2                 (1 << 2)
+#define ENAA_P1                 (1 << 1)
+#define ENAA_P0                 (1 << 0)
+
 // EN_RXADDR
 #define ERX_P5                  (1 << 5)
 #define ERX_P4                  (1 << 4)

@@ -149,8 +149,8 @@ uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     rf_spi_transmit(radio, en_rx, 2);
 
-    // uint8_t payload_width[2] = {RX_PW_P0 | W_REGISTER, 1};
-    // rf_spi_transmit(radio, payload_width, 2);
+    uint8_t payload_width[2] = {RX_PW_P0 | W_REGISTER, 1};
+    rf_spi_transmit(radio, payload_width, 2);
 
     rf_enable(radio);
     radio->delay_ms(1);           // wait >130us for RX settling

@@ -149,9 +149,6 @@ uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     rf_spi_transmit(radio, en_rx, 2);
 
-    uint8_t payload_width[2] = {RX_PW_P0 | W_REGISTER, 1};
-    rf_spi_transmit(radio, payload_width, 2);
-
     rf_enable(radio);
     radio->delay_ms(1);           // wait >130us for RX settling
 
@@ -181,9 +178,6 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
 
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     rf_spi_transmit(radio, en_rx, 2);
-
-    uint8_t payload_width[2] = {RX_PW_P0 | W_REGISTER, 1};
-    rf_spi_transmit(radio, payload_width, 2);
 
     // enable writes to W_ACK_PAYLOAD register
     uint8_t activate[2] = {ACTIVATE, 0x73};
@@ -221,10 +215,13 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
 void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
 {
     // get length of data packet from data pipe
-    uint8_t get_len[2] = {RX_PW_P0, 0};
-    uint8_t rxd[2];
-    rf_spi_transmit_receive(radio, get_len, rxd, 2);
-    *len = rxd[1];
+    uint8_t activate[2] = {ACTIVATE, 0x73};
+    rf_spi_transmit(radio, activate, 2);
+
+    uint8_t rx_pl[2] = {R_RX_PL_WID, 0};
+    uint8_t width[2];
+    rf_spi_transmit_receive(radio, rx_pl, width, 2);
+    *len = width[1];
 
     // read packet
     if (*len != 0)

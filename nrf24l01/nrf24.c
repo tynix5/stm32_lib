@@ -110,114 +110,6 @@ void rf_init(RadioParams * radio)
     // radio module should be in standby mode after exiting
 }
 
-/*
-void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len)
-{
-    if (len > MAX_PKT_SIZE)
-        return;
-
-    // ensure mode is in standby before placing in tx mode
-    rf_disable(radio);
-    uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP | EN_CRC};
-    rf_spi_transmit(radio, pwr_up, 2);
-
-    // disable auto-acks and disable retries
-    rf_set_retransmit(radio, RETRY_DELAY_1000, RETRY_CNT_DISABLE);
-    uint8_t dis_aa[2] = {EN_AA | W_REGISTER, 0};
-    rf_spi_transmit(radio, dis_aa, 2);
-
-    // write data to TX buffer
-    uint8_t w_no_ack = W_TX_PAYLOAD_NOACK;
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(radio->hspi, &w_no_ack, 1, HAL_TIMEOUT);
-    HAL_SPI_Transmit(radio->hspi, packet, len, HAL_TIMEOUT);
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
-
-    // transmitter --> PRIM_RX = 0, CE = 1 for >10us and <4ms and TX FIFO not empty
-    rf_enable(radio);
-    radio->delay_ms(1);
-    rf_disable(radio);
-
-    // wait for packet to be transmitted
-    while (!(rf_read_status(radio) & TX_DS));
-
-    // clear data sent flag
-    uint8_t clear_ds[2] = {STATUS | W_REGISTER, TX_DS};
-    rf_spi_transmit(radio, clear_ds, 2);
-}
-
-ErrorRF rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen)
-{
-    if (plen > MAX_PKT_SIZE)
-        return INVALID_CONFIG;
-
-    // ensure mode is in standby before placing in tx mode
-    rf_disable(radio);
-    uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP | EN_CRC};
-    rf_spi_transmit(radio, pwr_up, 2);
-
-    // write data to TX buffer
-    uint8_t w_ack = W_TX_PAYLOAD;
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(radio->hspi, &w_ack, 1, HAL_TIMEOUT);
-    HAL_SPI_Transmit(radio->hspi, packet, plen, HAL_TIMEOUT);
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
-
-    // transmitter --> PRIM_RX = 0, CE = 1 for >10us and <4ms and TX FIFO not empty
-    rf_enable(radio);
-    radio->delay_ms(1);
-    rf_disable(radio);
-
-    // wait for packet to be transmitted and acknowledgement received
-    while (1)
-    {
-        uint8_t status = rf_read_status(radio);
-
-        if (status & MAX_RT)
-        {
-            uint8_t reset_max_rt[2] = {STATUS | W_REGISTER, 0};
-            rf_spi_transmit(radio, reset_max_rt, 2);
-            return MAX_RETRIES;
-        }
-        else if (status & TX_DS)
-        {
-            break;
-        }
-    }
-
-    // clear data sent flag
-    uint8_t clear_ds[2] = {STATUS | W_REGISTER, TX_DS};
-    rf_spi_transmit(radio, clear_ds, 2);
-
-    // only read acknowledgement if enabled
-    if (radio->use_payload_w_ack == ACK_PAYLOADS)
-    {
-        // read acknowledgement width
-        uint8_t r_rx_pl[2] = {R_RX_PL_WID, 0};
-        uint8_t ack_width[2];
-        rf_spi_transmit_receive(radio, r_rx_pl, ack_width, 2);
-        *alen = ack_width[1];
-
-        if (*alen > MAX_PKT_SIZE)
-        {
-            *alen = 0;
-            return INVALID_PACKET;
-        }
-        else if (*alen != 0)
-        {
-            // read acknowledgement
-            uint8_t r_ack = R_RX_PAYLOAD;
-            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-            HAL_SPI_Transmit(radio->hspi, &r_ack, 1, HAL_TIMEOUT);
-            HAL_SPI_Receive(radio->hspi, ack, *alen, HAL_TIMEOUT);
-            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
-        }
-    }
-
-    return RF_SUCCESS;
-}
-    */
-
 ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen)
 {
     if (plen > MAX_PKT_SIZE)
@@ -249,10 +141,12 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
     {
         uint8_t status = rf_read_status(radio);
 
+        // if maximum retries have happened, flush FIFO and clear flag
         if (status & MAX_RT && radio->ack == ENABLE_ACK)
         {
             uint8_t reset_max_rt[2] = {STATUS | W_REGISTER, 0};
             rf_spi_transmit(radio, reset_max_rt, 2);
+            rf_flush_tx(radio);
             return MAX_RETRIES;
         }
         else if (status & TX_DS)
@@ -267,7 +161,7 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
 
     // only read acknowledgement if enabled
     *alen = 0;
-    if (radio->ack == ENABLE_ACK)
+    if (radio->ack == ENABLE_ACK && rf_read_status(radio) & RX_DR)
     {
         // read acknowledgement width
         uint8_t r_rx_pl[2] = {R_RX_PL_WID, 0};
@@ -293,6 +187,35 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
     return RF_SUCCESS;
 }
 
+ErrorRF rf_listen(RadioParams * radio, uint32_t timeout)
+{
+    // receiver --> PRIM_RX = 1, CE = 1
+    rf_disable(radio);
+
+    uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
+    rf_spi_transmit(radio, en_rx, 2);
+
+    rf_enable(radio);
+    radio->delay_ms(1);           // wait >130us for RX settling
+
+    // either poll continuously or wait for IRQ and timeout after certain period of time
+    uint32_t ticks = 0;
+    while (ticks < timeout)
+    {
+        if (rf_read_status(radio) & RX_DR)              // if data has been received, exit
+        {
+            rf_disable(radio);
+            return RF_SUCCESS;
+        }
+
+        radio->delay_ms(1);
+        ticks++;
+    }
+
+    return TIMEOUT;
+}
+
+/*
 ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
 {
     // receiver --> PRIM_RX = 1, CE = 1
@@ -356,28 +279,54 @@ ErrorRF rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
 
     return TIMEOUT;
 }
+*/
 
-ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
+ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_t * ack, uint8_t alen)
 {
-    uint8_t rx_pl[2] = {R_RX_PL_WID, 0};
-    uint8_t width[2];
-    rf_spi_transmit_receive(radio, rx_pl, width, 2);
-    *len = width[1];
+    // get packet width
+    if (radio->payload_type == DYNAMIC_PAYLOAD)
+    {
+        uint8_t rx_pl[2] = {R_RX_PL_WID, 0};
+        uint8_t width[2];
+        rf_spi_transmit_receive(radio, rx_pl, width, 2);
+        *plen = width[1];
+    }
+    else
+    {
+        *plen = radio->payload_length;
+    }
 
-    if (*len > MAX_PKT_SIZE)
+    // if an invalid packet, discard it and flush FIFO
+    if (*plen > MAX_PKT_SIZE)
     {
         rf_flush_rx(radio);
-        *len = 0;
+        *plen = 0;
         return INVALID_PACKET;
     }
+
     // read packet
-    if (*len != 0)
+    if (*plen != 0)
     {
         uint8_t rx_payload = R_RX_PAYLOAD;
 
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
         HAL_SPI_Transmit(radio->hspi, &rx_payload, 1, HAL_TIMEOUT);
-        HAL_SPI_Receive(radio->hspi, packet, *len, HAL_TIMEOUT);
+        HAL_SPI_Receive(radio->hspi, packet, *plen, HAL_TIMEOUT);
+        HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+    }
+
+    // clear data ready flag
+    uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
+    rf_spi_transmit(radio, clear_dr, 2);
+
+    // if payload with acks are enabled and attempting to be used...
+    if (radio->ack == ENABLE_ACK && alen > 0)
+    {
+        // write response payload
+        uint8_t w_ack_payload = W_ACK_PAYLOAD;
+        HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+        HAL_SPI_Transmit(radio->hspi, &w_ack_payload, 1, HAL_TIMEOUT);
+        HAL_SPI_Transmit(radio->hspi, ack, alen, HAL_TIMEOUT);
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
 

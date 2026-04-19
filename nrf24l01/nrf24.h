@@ -198,18 +198,16 @@ typedef struct {
 } RadioParams;
 
 void rf_init(RadioParams * radio);
-// void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len);
-// ErrorRF rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len, uint8_t * ack, uint8_t * alen);
 ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen);
-ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout);
-ErrorRF rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout);
-ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len);
+ErrorRF rf_listen(RadioParams * radio, uint32_t timeout);
+// ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout);
+// ErrorRF rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout);
+ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_t * ack, uint8_t alen);
 void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count);
 void rf_set_channel(RadioParams * radio, uint8_t ch);
 void rf_set_data_rate(RadioParams * radio, uint8_t rate);
 void rf_set_power_level(RadioParams * radio, uint8_t power);
 void rf_flush_rx(RadioParams * radio);
 void rf_flush_tx(RadioParams * radio);
-// void rf_set_power_level(RadioParams radio, uint8_t power);
 
 #endif

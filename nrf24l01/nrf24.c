@@ -62,11 +62,12 @@ void rf_init(RadioParams * radio)
     uint8_t en_dp[2] = {DYNPD | W_REGISTER, DPL_P0};
     rf_spi_transmit(radio, en_dp, 2);
 
-    // enable auto-acknowledgement for pipe 0(required for dynamic payload length)
+    // enable auto-acknowledgement for pipe 0 (required for dynamic payload length)
     uint8_t en_aa[2] = {EN_AA | W_REGISTER, ENAA_P0};
     rf_spi_transmit(radio, en_aa, 2);
 
-    // enable dynamic ACK, dynamic payload length, payload with ack
+    // enable dynamic ACK (yes/no to acks), dynamic payload length, payload with ack
+    // using ACK is determined by using W_TX_PAYLOAD_NOACK or W_TX_PAYLOAD
     uint8_t feature[2] = {FEATURE | W_REGISTER, EN_DPL | EN_ACK_PAY | EN_DYN_ACK};
     rf_spi_transmit(radio, feature, 2);
 
@@ -138,12 +139,15 @@ void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t 
     rf_spi_transmit_receive(radio, r_rx_pl, ack_width, 2);
     *alen = ack_width[1];
 
-    // read acknowledgement
-    uint8_t r_ack = R_RX_PAYLOAD;
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(radio->hspi, &r_ack, 1, HAL_TIMEOUT);
-    HAL_SPI_Receive(radio->hspi, ack, *alen, HAL_TIMEOUT);
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+    if (*alen != 0)
+    {
+        // read acknowledgement
+        uint8_t r_ack = R_RX_PAYLOAD;
+        HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+        HAL_SPI_Transmit(radio->hspi, &r_ack, 1, HAL_TIMEOUT);
+        HAL_SPI_Receive(radio->hspi, ack, *alen, HAL_TIMEOUT);
+        HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+    }
 }
 
 uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
@@ -184,12 +188,6 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     rf_spi_transmit(radio, en_rx, 2);
 
-    uint8_t w_ack_payload = W_ACK_PAYLOAD;
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(radio->hspi, &w_ack_payload, 1, HAL_TIMEOUT);
-    HAL_SPI_Transmit(radio->hspi, response, rlen, HAL_TIMEOUT);
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
-
     rf_enable(radio);
     radio->delay_ms(1);           // wait >130us for RX settling
 
@@ -200,8 +198,13 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
         if (rf_read_status(radio) & RX_DR)              // if data has been received, exit
         {
             rf_disable(radio);
-            uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
-            rf_spi_transmit(radio, clear_dr, 2);
+
+            uint8_t w_ack_payload = W_ACK_PAYLOAD;
+            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+            HAL_SPI_Transmit(radio->hspi, &w_ack_payload, 1, HAL_TIMEOUT);
+            HAL_SPI_Transmit(radio->hspi, response, rlen, HAL_TIMEOUT);
+            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+
             return 1;
         }
 
@@ -230,6 +233,10 @@ void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
         HAL_SPI_Receive(radio->hspi, packet, *len, HAL_TIMEOUT);
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
+
+    // clear data ready flag
+    uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
+    rf_spi_transmit(radio, clear_dr, 2);
 }
 
 /**************************************** SPI Wrapper Functions **************************************/

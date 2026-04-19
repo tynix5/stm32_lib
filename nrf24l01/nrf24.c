@@ -174,6 +174,7 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
 
         if (*alen > MAX_PKT_SIZE)
         {
+            rf_flush_rx(radio);
             return INVALID_PACKET;
         }
         else if (*alen != 0)

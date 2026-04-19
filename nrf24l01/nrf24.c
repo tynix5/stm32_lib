@@ -107,6 +107,9 @@ void rf_init(RadioParams * radio)
     // using ACK is determined by using W_TX_PAYLOAD_NOACK or W_TX_PAYLOAD
     uint8_t feature[2] = {FEATURE | W_REGISTER, curr_features};
     rf_spi_transmit(radio, feature, 2);
+
+    rf_flush_rx(radio);
+    rf_flush_tx(radio);
     // radio module should be in standby mode after exiting
 }
 

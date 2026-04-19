@@ -21,12 +21,10 @@
 
 #define MAX_PKT_SIZE            32
 
-#define USE_DYNAMIC_PAYLOAD     1
+#define DYNAMIC_PAYLOAD         1
 #define STATIC_PAYLOAD          0
-#define USE_ACKS                1
-#define NO_ACKS                 0
-#define ACK_PAYLOADS            1
-#define NO_ACK_PAYLOADS         0
+#define ENABLE_ACK              1
+#define DISABLE_ACK             0
 
 /************************* Commands *************************/
 #define R_REGISTER              0
@@ -185,9 +183,8 @@ typedef struct {
     uint16_t cs_pin;
     /******************************************/
 
-    uint8_t dynamic_payloads;
-    uint8_t use_acks;
-    uint8_t use_payload_w_ack;
+    uint8_t payload_type;
+    uint8_t ack;
 
     uint8_t payload_length;             // only applies to STATIC_PAYLOAD
     
@@ -201,8 +198,9 @@ typedef struct {
 } RadioParams;
 
 void rf_init(RadioParams * radio);
-void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len);
-ErrorRF rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len, uint8_t * ack, uint8_t * alen);
+// void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len);
+// ErrorRF rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len, uint8_t * ack, uint8_t * alen);
+ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen);
 ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout);
 ErrorRF rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout);
 ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len);

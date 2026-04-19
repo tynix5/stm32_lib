@@ -60,7 +60,7 @@ void rf_init(RadioParams * radio)
 
     uint8_t curr_features = 0;
 
-    if (radio->dynamic_payloads == USE_DYNAMIC_PAYLOAD)
+    if (radio->payload_type == DYNAMIC_PAYLOAD)
     {
         // enable dynamic payload length for pipe 0
         uint8_t en_dp[2] = {DYNPD | W_REGISTER, DPL_P0};
@@ -83,35 +83,34 @@ void rf_init(RadioParams * radio)
         rf_spi_transmit(radio, payload_lengths, 2);
     }
 
-    if (radio->use_acks == USE_ACKS)
+    if (radio->ack == ENABLE_ACK)
     {
         // enable auto-acknowledgement for pipe 0 (required for dynamic payload length)
         uint8_t en_aa[2] = {EN_AA | W_REGISTER, ENAA_P0};
         rf_spi_transmit(radio, en_aa, 2);
+
+        // enable acknowledgement payloads
+        curr_features |= EN_ACK_PAY;
     }
     else 
     {
-        /*
-        // disable auto-acknowledgements
-        uint8_t disable_aa[2] = {EN_AA | W_REGISTER, 0};
-        rf_spi_transmit(radio, disable_aa, 2);
-        */
+        if (radio->payload_type == STATIC_PAYLOAD)
+        {
+            // disable auto-acknowledgements when using static payload and disabled acks
+            uint8_t disable_aa[2] = {EN_AA | W_REGISTER, 0};
+            rf_spi_transmit(radio, disable_aa, 2);
+        }
 
         curr_features |= EN_DYN_ACK;
     }
 
-    if (radio->use_payload_w_ack == ACK_PAYLOADS)
-    {
-        curr_features |= EN_ACK_PAY;
-    }
-
-    // enable dynamic payload length
     // using ACK is determined by using W_TX_PAYLOAD_NOACK or W_TX_PAYLOAD
     uint8_t feature[2] = {FEATURE | W_REGISTER, curr_features};
     rf_spi_transmit(radio, feature, 2);
     // radio module should be in standby mode after exiting
 }
 
+/*
 void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len)
 {
     if (len > MAX_PKT_SIZE)
@@ -202,6 +201,82 @@ ErrorRF rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8
         if (*alen > MAX_PKT_SIZE)
         {
             *alen = 0;
+            return INVALID_PACKET;
+        }
+        else if (*alen != 0)
+        {
+            // read acknowledgement
+            uint8_t r_ack = R_RX_PAYLOAD;
+            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+            HAL_SPI_Transmit(radio->hspi, &r_ack, 1, HAL_TIMEOUT);
+            HAL_SPI_Receive(radio->hspi, ack, *alen, HAL_TIMEOUT);
+            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+        }
+    }
+
+    return RF_SUCCESS;
+}
+    */
+
+ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen)
+{
+    if (plen > MAX_PKT_SIZE)
+        return INVALID_CONFIG;
+
+    // ensure mode is in standby before placing in tx mode
+    rf_disable(radio);
+    uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP | EN_CRC};
+    rf_spi_transmit(radio, pwr_up, 2);
+
+    // write data to TX buffer
+    uint8_t write_tx;
+    if (radio->ack == ENABLE_ACK)
+        write_tx = W_TX_PAYLOAD;
+    else
+        write_tx = W_TX_PAYLOAD_NOACK;
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(radio->hspi, &write_tx, 1, HAL_TIMEOUT);
+    HAL_SPI_Transmit(radio->hspi, packet, plen, HAL_TIMEOUT);
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+
+    // transmitter --> PRIM_RX = 0, CE = 1 for >10us and <4ms and TX FIFO not empty
+    rf_enable(radio);
+    radio->delay_ms(1);
+    rf_disable(radio);
+
+    // wait for packet to be transmitted and acknowledgement received
+    while (1)
+    {
+        uint8_t status = rf_read_status(radio);
+
+        if (status & MAX_RT && radio->ack == ENABLE_ACK)
+        {
+            uint8_t reset_max_rt[2] = {STATUS | W_REGISTER, 0};
+            rf_spi_transmit(radio, reset_max_rt, 2);
+            return MAX_RETRIES;
+        }
+        else if (status & TX_DS)
+        {
+            break;
+        }
+    }
+
+    // clear data sent flag
+    uint8_t clear_ds[2] = {STATUS | W_REGISTER, TX_DS};
+    rf_spi_transmit(radio, clear_ds, 2);
+
+    // only read acknowledgement if enabled
+    *alen = 0;
+    if (radio->ack == ENABLE_ACK)
+    {
+        // read acknowledgement width
+        uint8_t r_rx_pl[2] = {R_RX_PL_WID, 0};
+        uint8_t ack_width[2];
+        rf_spi_transmit_receive(radio, r_rx_pl, ack_width, 2);
+        *alen = ack_width[1];
+
+        if (*alen > MAX_PKT_SIZE)
+        {
             return INVALID_PACKET;
         }
         else if (*alen != 0)

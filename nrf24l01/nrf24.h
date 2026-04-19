@@ -25,6 +25,8 @@
 #define STATIC_PAYLOAD          0
 #define USE_ACKS                1
 #define NO_ACKS                 0
+#define ACK_PAYLOADS            1
+#define NO_ACK_PAYLOADS         0
 
 /************************* Commands *************************/
 #define R_REGISTER              0
@@ -185,6 +187,9 @@ typedef struct {
 
     uint8_t dynamic_payloads;
     uint8_t use_acks;
+    uint8_t use_payload_w_ack;
+
+    uint8_t payload_length;             // only applies to STATIC_PAYLOAD
     
     uint8_t freq_ch;
     uint8_t data_rate;

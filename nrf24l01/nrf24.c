@@ -77,6 +77,10 @@ void rf_init(RadioParams * radio)
         // disable dynamic payload lengths
         uint8_t en_dp[2] = {DYNPD | W_REGISTER, 0};
         rf_spi_transmit(radio, en_dp, 2);
+
+        // set static payload lengths
+        uint8_t payload_lengths[2] = {RX_PW_P0 | W_REGISTER, radio->payload_length};
+        rf_spi_transmit(radio, payload_lengths, 2);
     }
 
     if (radio->use_acks == USE_ACKS)
@@ -85,7 +89,6 @@ void rf_init(RadioParams * radio)
         uint8_t en_aa[2] = {EN_AA | W_REGISTER, ENAA_P0};
         rf_spi_transmit(radio, en_aa, 2);
 
-        curr_features |= EN_ACK_PAY;
     }
     else 
     {
@@ -94,6 +97,11 @@ void rf_init(RadioParams * radio)
         rf_spi_transmit(radio, disable_aa, 2);
 
         curr_features |= EN_DYN_ACK;
+    }
+
+    if (radio->use_payload_w_ack == ACK_PAYLOADS)
+    {
+        curr_features |= EN_ACK_PAY;
     }
 
     // enable dynamic payload length
@@ -181,25 +189,29 @@ ErrorRF rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8
     uint8_t clear_ds[2] = {STATUS | W_REGISTER, TX_DS};
     rf_spi_transmit(radio, clear_ds, 2);
 
-    // read acknowledgement width
-    uint8_t r_rx_pl[2] = {R_RX_PL_WID, 0};
-    uint8_t ack_width[2];
-    rf_spi_transmit_receive(radio, r_rx_pl, ack_width, 2);
-    *alen = ack_width[1];
+    // only read acknowledgement if enabled
+    if (radio->use_payload_w_ack == ACK_PAYLOADS)
+    {
+        // read acknowledgement width
+        uint8_t r_rx_pl[2] = {R_RX_PL_WID, 0};
+        uint8_t ack_width[2];
+        rf_spi_transmit_receive(radio, r_rx_pl, ack_width, 2);
+        *alen = ack_width[1];
 
-    if (*alen > MAX_PKT_SIZE)
-    {
-        *alen = 0;
-        return INVALID_PACKET;
-    }
-    else if (*alen != 0)
-    {
-        // read acknowledgement
-        uint8_t r_ack = R_RX_PAYLOAD;
-        HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-        HAL_SPI_Transmit(radio->hspi, &r_ack, 1, HAL_TIMEOUT);
-        HAL_SPI_Receive(radio->hspi, ack, *alen, HAL_TIMEOUT);
-        HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+        if (*alen > MAX_PKT_SIZE)
+        {
+            *alen = 0;
+            return INVALID_PACKET;
+        }
+        else if (*alen != 0)
+        {
+            // read acknowledgement
+            uint8_t r_ack = R_RX_PAYLOAD;
+            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+            HAL_SPI_Transmit(radio->hspi, &r_ack, 1, HAL_TIMEOUT);
+            HAL_SPI_Receive(radio->hspi, ack, *alen, HAL_TIMEOUT);
+            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+        }
     }
 
     return RF_SUCCESS;

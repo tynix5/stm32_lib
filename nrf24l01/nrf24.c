@@ -91,6 +91,9 @@ void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len)
     uint8_t dis_aa[2] = {EN_AA | W_REGISTER, 0};
     rf_spi_transmit(radio, dis_aa, 2);
 
+    uint8_t feature[2] = {FEATURE | W_REGISTER, EN_DPL | EN_DYN_ACK};
+    rf_spi_transmit(radio, feature, 2);
+
 
     // write data to TX buffer
     uint8_t w_no_ack = W_TX_PAYLOAD_NOACK;

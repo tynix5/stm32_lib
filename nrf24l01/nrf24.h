@@ -161,6 +161,14 @@
 #define EN_DYN_ACK              (1 << 0)
 /************************************************************/
 
+typedef enum {
+    SUCCESS = 0,
+    INVALID_CONFIG,
+    INVALID_PACKET,
+    MAX_RETRIES,
+    TIMEOUT,
+} ErrorRF;
+
 typedef struct {
 
     SPI_HandleTypeDef * hspi;
@@ -189,14 +197,16 @@ typedef struct {
 
 void rf_init(RadioParams * radio);
 void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len);
-void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len, uint8_t * ack, uint8_t * alen);
-uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout);
-uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout);
-void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len);
+ErrorRF rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len, uint8_t * ack, uint8_t * alen);
+ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout);
+ErrorRF rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout);
+ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len);
 void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count);
 void rf_set_channel(RadioParams * radio, uint8_t ch);
 void rf_set_data_rate(RadioParams * radio, uint8_t rate);
 void rf_set_power_level(RadioParams * radio, uint8_t power);
+void rf_flush_rx(RadioParams * radio);
+void rf_flush_tx(RadioParams * radio);
 // void rf_set_power_level(RadioParams radio, uint8_t power);
 
 #endif

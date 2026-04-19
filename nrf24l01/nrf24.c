@@ -138,10 +138,10 @@ void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len)
     rf_spi_transmit(radio, clear_ds, 2);
 }
 
-void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen)
+ErrorRF rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen)
 {
     if (plen > MAX_PKT_SIZE)
-        return;
+        return INVALID_CONFIG;
 
     // ensure mode is in standby before placing in tx mode
     rf_disable(radio);
@@ -161,7 +161,21 @@ void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t 
     rf_disable(radio);
 
     // wait for packet to be transmitted and acknowledgement received
-    while (!(rf_read_status(radio) & TX_DS));
+    while (1)
+    {
+        uint8_t status = rf_read_status(radio);
+
+        if (status & MAX_RT)
+        {
+            uint8_t reset_max_rt[2] = {STATUS | W_REGISTER, 0};
+            rf_spi_transmit(radio, reset_max_rt, 2);
+            return MAX_RETRIES;
+        }
+        else if (status & TX_DS)
+        {
+            break;
+        }
+    }
 
     // clear data sent flag
     uint8_t clear_ds[2] = {STATUS | W_REGISTER, TX_DS};
@@ -173,7 +187,12 @@ void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t 
     rf_spi_transmit_receive(radio, r_rx_pl, ack_width, 2);
     *alen = ack_width[1];
 
-    if (*alen != 0)
+    if (*alen > MAX_PKT_SIZE)
+    {
+        *alen = 0;
+        return INVALID_PACKET;
+    }
+    else if (*alen != 0)
     {
         // read acknowledgement
         uint8_t r_ack = R_RX_PAYLOAD;
@@ -182,9 +201,11 @@ void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t 
         HAL_SPI_Receive(radio->hspi, ack, *alen, HAL_TIMEOUT);
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
+
+    return SUCCESS;
 }
 
-uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
+ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
 {
     // receiver --> PRIM_RX = 1, CE = 1
     rf_disable(radio);
@@ -204,17 +225,16 @@ uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
             rf_disable(radio);
             uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
             rf_spi_transmit(radio, clear_dr, 2);
-            return 1;
+            return SUCCESS;
         }
 
         ticks++;
     }
 
-    // timeout
-    return 0;
+    return TIMEOUT;
 }
 
-uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout)
+ErrorRF rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout)
 {
     // receiver --> PRIM_RX = 1, CE = 1
     rf_disable(radio);
@@ -240,23 +260,28 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
             rf_disable(radio);
             uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
             rf_spi_transmit(radio, clear_dr, 2);
-            return 1;
+            return SUCCESS;
         }
 
         ticks++;
     }
 
-    // timeout
-    return 0;
+    return TIMEOUT;
 }
 
-void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
+ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
 {
     uint8_t rx_pl[2] = {R_RX_PL_WID, 0};
     uint8_t width[2];
     rf_spi_transmit_receive(radio, rx_pl, width, 2);
     *len = width[1];
 
+    if (*len > MAX_PKT_SIZE)
+    {
+        rf_flush_rx(radio);
+        *len = 0;
+        return INVALID_PACKET;
+    }
     // read packet
     if (*len != 0)
     {
@@ -267,6 +292,8 @@ void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
         HAL_SPI_Receive(radio->hspi, packet, *len, HAL_TIMEOUT);
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
+
+    return SUCCESS;
 }
 
 void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count)
@@ -301,6 +328,18 @@ void rf_set_power_level(RadioParams * radio, uint8_t power)
     
     uint8_t power_level[2] = {RF_SETUP | W_REGISTER, (curr_data_rate[1] & 0xf9) | power};
     rf_spi_transmit(radio, power_level, 2);
+}
+
+void rf_flush_rx(RadioParams * radio)
+{
+    uint8_t flush_rx = FLUSH_RX;
+    rf_spi_transmit(radio, &flush_rx, 1);
+}
+
+void rf_flush_tx(RadioParams * radio)
+{
+    uint8_t flush_tx = FLUSH_TX;
+    rf_spi_transmit(radio, &flush_tx, 1);
 }
 
 /**************************************** SPI Wrapper Functions **************************************/

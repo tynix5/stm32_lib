@@ -211,7 +211,7 @@ ErrorRF rf_listen(RadioParams * radio, uint32_t timeout)
             return RF_SUCCESS;
         }
 
-        radio->delay_ms(1);
+        // radio->delay_ms(1);
         ticks++;
     }
 

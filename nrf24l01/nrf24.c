@@ -86,6 +86,12 @@ void rf_send_w_no_ack(RadioParams * radio, uint8_t * packet, uint8_t len)
     uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP | EN_CRC};
     rf_spi_transmit(radio, pwr_up, 2);
 
+    // disable auto-acks and disable retries
+    rf_set_retransmit(radio, RETRY_DELAY_1000, RETRY_CNT_DISABLE);
+    uint8_t dis_aa[2] = {EN_AA | W_REGISTER, 0};
+    rf_spi_transmit(radio, dis_aa, 2);
+
+
     // write data to TX buffer
     uint8_t w_no_ack = W_TX_PAYLOAD_NOACK;
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);

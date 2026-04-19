@@ -256,7 +256,7 @@ void rf_set_data_rate(RadioParams * radio, uint8_t rate)
     uint8_t curr_pwr[2];
     rf_spi_transmit_receive(radio, rf_setup, curr_pwr, 2);
     
-    uint8_t data_rate[2] = {RF_SETUP | W_REGISTER, curr_pwr[1] & 0xf7 | rate};
+    uint8_t data_rate[2] = {RF_SETUP | W_REGISTER, (curr_pwr[1] & 0xf7) | rate};
     rf_spi_transmit(radio, data_rate, 2);
 }
 
@@ -267,7 +267,7 @@ void rf_set_power_level(RadioParams * radio, uint8_t power)
     uint8_t curr_data_rate[2];
     rf_spi_transmit_receive(radio, rf_setup, curr_data_rate, 2);
     
-    uint8_t power_level[2] = {RF_SETUP | W_REGISTER, curr_data_rate[1] & 0xf9 | power};
+    uint8_t power_level[2] = {RF_SETUP | W_REGISTER, (curr_data_rate[1] & 0xf9) | power};
     rf_spi_transmit(radio, power_level, 2);
 }
 

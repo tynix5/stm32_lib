@@ -147,7 +147,7 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
         // if maximum retries have happened, flush FIFO and clear flag
         if (status & MAX_RT && radio->ack == ENABLE_ACK)
         {
-            uint8_t reset_max_rt[2] = {STATUS | W_REGISTER, 0};
+            uint8_t reset_max_rt[2] = {STATUS | W_REGISTER, MAX_RT};
             rf_spi_transmit(radio, reset_max_rt, 2);
             rf_flush_tx(radio);
             return MAX_RETRIES;
@@ -185,6 +185,10 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
             HAL_SPI_Transmit(radio->hspi, &r_ack, 1, HAL_TIMEOUT);
             HAL_SPI_Receive(radio->hspi, ack, *alen, HAL_TIMEOUT);
             HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+
+             // clear data ready flag reading acknowledgement
+            uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
+            rf_spi_transmit(radio, clear_dr, 2);
         }
     }
 
@@ -217,72 +221,6 @@ ErrorRF rf_listen(RadioParams * radio, uint32_t timeout)
 
     return TIMEOUT;
 }
-
-/*
-ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
-{
-    // receiver --> PRIM_RX = 1, CE = 1
-    rf_disable(radio);
-
-    uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
-    rf_spi_transmit(radio, en_rx, 2);
-
-    rf_enable(radio);
-    radio->delay_ms(1);           // wait >130us for RX settling
-
-    // either poll continuously or wait for IRQ and timeout after certain period of time
-    uint32_t ticks = 0;
-    while (ticks < timeout)
-    {
-        if (rf_read_status(radio) & RX_DR)              // if data has been received, exit
-        {
-            rf_disable(radio);
-            uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
-            rf_spi_transmit(radio, clear_dr, 2);
-            return RF_SUCCESS;
-        }
-
-        ticks++;
-    }
-
-    return TIMEOUT;
-}
-
-ErrorRF rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout)
-{
-    // receiver --> PRIM_RX = 1, CE = 1
-    rf_disable(radio);
-
-    uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
-    rf_spi_transmit(radio, en_rx, 2);
-
-    uint8_t w_ack_payload = W_ACK_PAYLOAD;
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_Transmit(radio->hspi, &w_ack_payload, 1, HAL_TIMEOUT);
-    HAL_SPI_Transmit(radio->hspi, response, rlen, HAL_TIMEOUT);
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
-
-    rf_enable(radio);
-    radio->delay_ms(1);           // wait >130us for RX settling
-
-    // either poll continuously or wait for IRQ and timeout after certain period of time
-    uint32_t ticks = 0;
-    while (ticks < timeout)
-    {
-        if (rf_read_status(radio) & RX_DR)              // if data has been received, exit
-        {
-            rf_disable(radio);
-            uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
-            rf_spi_transmit(radio, clear_dr, 2);
-            return RF_SUCCESS;
-        }
-
-        ticks++;
-    }
-
-    return TIMEOUT;
-}
-*/
 
 ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_t * ack, uint8_t alen)
 {
@@ -318,10 +256,6 @@ ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
 
-    // clear data ready flag
-    uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
-    rf_spi_transmit(radio, clear_dr, 2);
-
     // if payload with acks are enabled and attempting to be used...
     if (radio->ack == ENABLE_ACK && alen > 0)
     {
@@ -332,6 +266,10 @@ ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_
         HAL_SPI_Transmit(radio->hspi, ack, alen, HAL_TIMEOUT);
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
+
+    // clear data ready flag after reading packet and loading acks
+    uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
+    rf_spi_transmit(radio, clear_dr, 2);
 
     return RF_SUCCESS;
 }

@@ -88,13 +88,14 @@ void rf_init(RadioParams * radio)
         // enable auto-acknowledgement for pipe 0 (required for dynamic payload length)
         uint8_t en_aa[2] = {EN_AA | W_REGISTER, ENAA_P0};
         rf_spi_transmit(radio, en_aa, 2);
-
     }
     else 
     {
+        /*
         // disable auto-acknowledgements
         uint8_t disable_aa[2] = {EN_AA | W_REGISTER, 0};
         rf_spi_transmit(radio, disable_aa, 2);
+        */
 
         curr_features |= EN_DYN_ACK;
     }

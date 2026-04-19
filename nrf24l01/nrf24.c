@@ -239,13 +239,13 @@ void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
 
 void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count)
 {
-    uint8_t setup_retr[2] = {SETUP_RETR, ((delay & 0x0f) << 4) | (count & 0x0f)};
+    uint8_t setup_retr[2] = {SETUP_RETR | W_REGISTER, ((delay & 0x0f) << 4) | (count & 0x0f)};
     rf_spi_transmit(radio, setup_retr, 2);
 }
 
 void rf_set_channel(RadioParams * radio, uint8_t ch)
 {
-    uint8_t rf_ch[2] = {RF_CH, ch & 0x7f};
+    uint8_t rf_ch[2] = {RF_CH | W_REGISTER, ch & 0x7f};
     rf_spi_transmit(radio, rf_ch, 2);
 }
 

@@ -162,7 +162,7 @@
 /************************************************************/
 
 typedef enum {
-    SUCCESS = 0,
+    RF_SUCCESS = 0,
     INVALID_CONFIG,
     INVALID_PACKET,
     MAX_RETRIES,

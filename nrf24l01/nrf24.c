@@ -202,7 +202,7 @@ ErrorRF rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
 
-    return SUCCESS;
+    return RF_SUCCESS;
 }
 
 ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
@@ -225,7 +225,7 @@ ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout)
             rf_disable(radio);
             uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
             rf_spi_transmit(radio, clear_dr, 2);
-            return SUCCESS;
+            return RF_SUCCESS;
         }
 
         ticks++;
@@ -260,7 +260,7 @@ ErrorRF rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
             rf_disable(radio);
             uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
             rf_spi_transmit(radio, clear_dr, 2);
-            return SUCCESS;
+            return RF_SUCCESS;
         }
 
         ticks++;
@@ -293,7 +293,7 @@ ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
 
-    return SUCCESS;
+    return RF_SUCCESS;
 }
 
 void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count)

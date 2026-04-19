@@ -205,6 +205,9 @@ ErrorRF rf_listen(RadioParams * radio, uint32_t timeout)
         if (rf_read_status(radio) & RX_DR)              // if data has been received, exit
         {
             rf_disable(radio);
+            // clear data ready flag
+            uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
+            rf_spi_transmit(radio, clear_dr, 2);
             return RF_SUCCESS;
         }
 
@@ -314,10 +317,6 @@ ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_
         HAL_SPI_Receive(radio->hspi, packet, *plen, HAL_TIMEOUT);
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
-
-    // clear data ready flag
-    uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
-    rf_spi_transmit(radio, clear_dr, 2);
 
     // if payload with acks are enabled and attempting to be used...
     if (radio->ack == ENABLE_ACK && alen > 0)

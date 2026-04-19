@@ -93,7 +93,43 @@
 #define AW_4                    (1 << 1)
 #define AW_5                    (1 << 0) | (1 << 1)
 
+// SETUP_RETR
+#define RETRY_DELAY_250         0
+#define RETRY_DELAY_500         1
+#define RETRY_DELAY_750         2
+#define RETRY_DELAY_1000        3
+#define RETRY_DELAY_1250        4
+#define RETRY_DELAY_1500        5
+#define RETRY_DELAY_1750        6
+#define RETRY_DELAY_2000        7
+#define RETRY_DELAY_2250        8
+#define RETRY_DELAY_2500        9
+#define RETRY_DELAY_2750        10
+#define RETRY_DELAY_3000        11
+#define RETRY_DELAY_3250        12
+#define RETRY_DELAY_3500        13
+#define RETRY_DELAY_3750        14
+#define RETRY_DELAY_4000        15
+#define RETRY_CNT_DISABLE       0
+#define RETRY_CNT_1             1
+#define RETRY_CNT_2             2
+#define RETRY_CNT_3             3
+#define RETRY_CNT_4             4
+#define RETRY_CNT_5             5
+#define RETRY_CNT_6             6
+#define RETRY_CNT_7             7
+#define RETRY_CNT_8             8
+#define RETRY_CNT_9             9
+#define RETRY_CNT_10            10
+#define RETRY_CNT_11            11
+#define RETRY_CNT_12            12
+#define RETRY_CNT_13            13
+#define RETRY_CNT_14            14
+#define RETRY_CNT_15            15
+
 // RF_SETUP
+#define RF_DR_1MBPS             0
+#define RF_DR_2MBPS             (1 << 3)
 #define RF_PWR_18DBM            0
 #define RF_PWR_12DBM            (1 << 1)
 #define RF_PWR_6DBM             (1 << 2)
@@ -136,7 +172,7 @@ typedef struct {
 
     uint8_t freq_ch;
     uint8_t data_rate;
-    uint8_t rf_pwr;
+    uint8_t power_level;
 
     uint64_t this_addr;
     uint64_t node_addr;
@@ -149,6 +185,10 @@ void rf_send_w_ack(RadioParams * radio, uint8_t * packet, uint8_t len, uint8_t *
 uint8_t rf_listen_no_ack(RadioParams * radio, uint32_t timeout);
 uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout);
 void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len);
+void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count);
+void rf_set_channel(RadioParams * radio, uint8_t ch);
+void rf_set_data_rate(RadioParams * radio, uint8_t rate);
+void rf_set_power_level(RadioParams * radio, uint8_t power);
 // void rf_set_power_level(RadioParams radio, uint8_t power);
 
 #endif

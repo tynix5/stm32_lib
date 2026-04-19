@@ -31,8 +31,10 @@ void rf_init(RadioParams * radio)
     radio->delay_ms(2);
     
     // default configurations
-    uint8_t max_pwr[2] = {RF_SETUP | W_REGISTER, RF_PWR_0DBM};          // max power mode
-    rf_spi_transmit(radio, max_pwr, 2);
+    rf_set_channel(radio, radio->freq_ch);
+    rf_set_power_level(radio, radio->power_level);
+    rf_set_data_rate(radio, radio->data_rate);
+    rf_set_retransmit(radio, RETRY_DELAY_1000, RETRY_CNT_3);
 
     uint8_t setup_aw[2] = {SETUP_AW | W_REGISTER, AW_5};                // 5 address bytes --> defined from TX_ADDR
     rf_spi_transmit(radio, setup_aw, 2);
@@ -188,6 +190,12 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
     uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
     rf_spi_transmit(radio, en_rx, 2);
 
+    uint8_t w_ack_payload = W_ACK_PAYLOAD;
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(radio->hspi, &w_ack_payload, 1, HAL_TIMEOUT);
+    HAL_SPI_Transmit(radio->hspi, response, rlen, HAL_TIMEOUT);
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+
     rf_enable(radio);
     radio->delay_ms(1);           // wait >130us for RX settling
 
@@ -198,13 +206,8 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
         if (rf_read_status(radio) & RX_DR)              // if data has been received, exit
         {
             rf_disable(radio);
-
-            uint8_t w_ack_payload = W_ACK_PAYLOAD;
-            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-            HAL_SPI_Transmit(radio->hspi, &w_ack_payload, 1, HAL_TIMEOUT);
-            HAL_SPI_Transmit(radio->hspi, response, rlen, HAL_TIMEOUT);
-            HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
-
+            uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
+            rf_spi_transmit(radio, clear_dr, 2);
             return 1;
         }
 
@@ -214,7 +217,6 @@ uint8_t rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uin
     // timeout
     return 0;
 }
-
 
 void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
 {
@@ -233,10 +235,40 @@ void rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * len)
         HAL_SPI_Receive(radio->hspi, packet, *len, HAL_TIMEOUT);
         HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     }
+}
 
-    // clear data ready flag
-    uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
-    rf_spi_transmit(radio, clear_dr, 2);
+void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count)
+{
+    uint8_t setup_retr[2] = {SETUP_RETR, ((delay & 0x0f) << 4) | (count & 0x0f)};
+    rf_spi_transmit(radio, setup_retr, 2);
+}
+
+void rf_set_channel(RadioParams * radio, uint8_t ch)
+{
+    uint8_t rf_ch[2] = {RF_CH, ch & 0x7f};
+    rf_spi_transmit(radio, rf_ch, 2);
+}
+
+void rf_set_data_rate(RadioParams * radio, uint8_t rate)
+{
+    // read current power configurations and keep them
+    uint8_t rf_setup[2] = {RF_SETUP, 0};
+    uint8_t curr_pwr[2];
+    rf_spi_transmit_receive(radio, rf_setup, curr_pwr, 2);
+    
+    uint8_t data_rate[2] = {RF_SETUP | W_REGISTER, curr_pwr[1] & 0xf7 | rate};
+    rf_spi_transmit(radio, data_rate, 2);
+}
+
+void rf_set_power_level(RadioParams * radio, uint8_t power)
+{
+    // read current data rate configurations and keep them
+    uint8_t rf_setup[2] = {RF_SETUP, 0};
+    uint8_t curr_data_rate[2];
+    rf_spi_transmit_receive(radio, rf_setup, curr_data_rate, 2);
+    
+    uint8_t power_level[2] = {RF_SETUP | W_REGISTER, curr_data_rate[1] & 0xf9 | power};
+    rf_spi_transmit(radio, power_level, 2);
 }
 
 /**************************************** SPI Wrapper Functions **************************************/

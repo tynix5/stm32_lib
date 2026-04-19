@@ -21,6 +21,11 @@
 
 #define MAX_PKT_SIZE            32
 
+#define USE_DYNAMIC_PAYLOAD     1
+#define STATIC_PAYLOAD          0
+#define USE_ACKS                1
+#define NO_ACKS                 0
+
 /************************* Commands *************************/
 #define R_REGISTER              0
 #define W_REGISTER              0b00100000
@@ -170,6 +175,9 @@ typedef struct {
     uint16_t cs_pin;
     /******************************************/
 
+    uint8_t dynamic_payloads;
+    uint8_t use_acks;
+    
     uint8_t freq_ch;
     uint8_t data_rate;
     uint8_t power_level;

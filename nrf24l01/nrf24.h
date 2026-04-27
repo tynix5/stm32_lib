@@ -200,8 +200,6 @@ typedef struct {
 void rf_init(RadioParams * radio);
 ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen);
 ErrorRF rf_listen(RadioParams * radio, uint32_t timeout);
-// ErrorRF rf_listen_no_ack(RadioParams * radio, uint32_t timeout);
-// ErrorRF rf_listen_ack(RadioParams * radio, uint8_t * response, uint8_t rlen, uint32_t timeout);
 ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_t * ack, uint8_t alen);
 void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count);
 void rf_set_channel(RadioParams * radio, uint8_t ch);

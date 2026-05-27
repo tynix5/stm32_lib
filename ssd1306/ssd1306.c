@@ -152,7 +152,43 @@ void ssd1306_draw_filled_rect(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 
 void ssd1306_draw_circle(uint8_t x, uint8_t y, uint8_t r)
 {
+    // (x, y) is center of circle
+    if (x > RES_X - 1 || x + r > RES_X - 1 || y > RES_Y - 1 || y + r > RES_Y - 1)
+        return;
 
+    for (uint8_t curr_x = x - r; curr_x <= x + r; curr_x++)
+    {
+        // x^2 + y^2 = r^2
+        // y^2 = r^2 - x^2
+        uint8_t y_sol = (uint8_t) round(sqrt((double) r * r - (double) (curr_x - x) * (curr_x - x)));
+
+        uint8_t x_new, y_new, offset;
+        ssd1306_transform_xy(curr_x, y + y_sol, &x_new, &y_new, &offset);
+        buff[y_new][x_new] |= (1 << offset);
+        ssd1306_transform_xy(curr_x, y - y_sol, &x_new, &y_new, &offset);
+        buff[y_new][x_new] |= (1 << offset);
+    }
+}
+
+void ssd1306_draw_filled_circle(uint8_t x, uint8_t y, uint8_t r)
+{
+    // (x, y) is center of circle
+    if (x > RES_X - 1 || x + r > RES_X - 1 || y > RES_Y - 1 || y + r > RES_Y - 1)
+        return;
+
+    for (uint8_t curr_x = x - r; curr_x <= x + r; curr_x++)
+    {
+        // x^2 + y^2 = r^2
+        // y^2 = r^2 - x^2
+        uint8_t y_sol = (uint8_t) round(sqrt((double) r * r - (double) (curr_x - x) * (curr_x - x)));
+
+        for (uint8_t curr_y = y - y_sol; curr_y <= y + y_sol; curr_y++)
+        {
+            uint8_t x_new, y_new, offset;
+            ssd1306_transform_xy(curr_x, curr_y, &x_new, &y_new, &offset);
+            buff[y_new][x_new] |= (1 << offset);
+        }
+    }
 }
 
 void ssd1306_set_cursor(uint8_t x, uint8_t y)
@@ -168,6 +204,9 @@ void ssd1306_set_cursor(uint8_t x, uint8_t y)
 
 void ssd1306_write_ch(uint8_t x, uint8_t y, char ch)
 {
+    if (x + FONT_WIDTH > RES_X - 1 || y + FONT_HEIGHT > RES_Y - 1)
+        return;
+
     const uint8_t * bitmap = (uint8_t *) font8x8_basic[(uint8_t) ch];
 
     for (uint8_t i = 0; i < FONT_HEIGHT; i++)

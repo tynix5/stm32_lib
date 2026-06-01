@@ -191,31 +191,21 @@ void ssd1306_draw_filled_circle(uint8_t x, uint8_t y, uint8_t r)
     }
 }
 
-void ssd1306_set_cursor(uint8_t x, uint8_t y)
-{
-    if (x > RES_X - 1)
-        x = RES_X - 1;
-    if (y > RES_Y - 1)
-        y = RES_Y - 1;
-
-    ssd1306_set_column(x);
-    ssd1306_set_page(y / 8);
-}
 
 void ssd1306_write_ch(uint8_t x, uint8_t y, char ch)
 {
     if (x + FONT_WIDTH > RES_X - 1 || y + FONT_HEIGHT > RES_Y - 1)
         return;
-
+    
     const uint8_t * bitmap = (uint8_t *) font8x8_basic[(uint8_t) ch];
-
+    
     for (uint8_t i = 0; i < FONT_HEIGHT; i++)
     {
         for (uint8_t j = 0; j < FONT_WIDTH; j++)
         {
             uint8_t x_new, y_new, offset;
             ssd1306_transform_xy(x + j, y + i, &x_new, &y_new, &offset);
-
+            
             if (bitmap[i] & (1 << j))
                 buff[y_new][x_new] |= (1 << offset);
             else
@@ -230,6 +220,37 @@ void ssd1306_write_str(uint8_t x, uint8_t y, char * str)
     {
         ssd1306_write_ch(x + i * FONT_WIDTH, y, *str++);
     }
+}
+
+void ssd1306_draw_bitmap(uint8_t x, uint8_t y, uint8_t  bitmap[], uint8_t size_x, uint8_t size_y)
+{
+    if (x + size_x > RES_X - 1 || y + size_y > RES_Y - 1)
+        return;
+
+    for (uint8_t i = 0; i < size_x; i++)
+    {
+        for (uint8_t j = 0; j < size_y; j++)
+        {
+            uint8_t x_new, y_new, offset;
+            ssd1306_transform_xy(x + i, y + j, &x_new, &y_new, &offset);
+
+            if (bitmap[j * size_x + i])
+                buff[y_new][x_new] |= (1 << offset);
+            else
+                buff[y_new][x_new] &= ~(1 << offset);
+        }
+    }
+}
+
+void ssd1306_set_cursor(uint8_t x, uint8_t y)
+{
+    if (x > RES_X - 1)
+        x = RES_X - 1;
+    if (y > RES_Y - 1)
+        y = RES_Y - 1;
+
+    ssd1306_set_column(x);
+    ssd1306_set_page(y / 8);
 }
 
 void ssd1306_clear()

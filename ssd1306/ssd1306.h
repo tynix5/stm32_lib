@@ -81,9 +81,10 @@ void ssd1306_draw_rect(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
 void ssd1306_draw_filled_rect(uint8_t x, uint8_t y, uint8_t w, uint8_t h);
 void ssd1306_draw_circle(uint8_t x, uint8_t y, uint8_t r);
 void ssd1306_draw_filled_circle(uint8_t x, uint8_t y, uint8_t r);
-void ssd1306_set_cursor(uint8_t x, uint8_t y);
 void ssd1306_write_ch(uint8_t x, uint8_t y, char ch);
 void ssd1306_write_str(uint8_t x, uint8_t y, char * str);
+void ssd1306_draw_bitmap(uint8_t x, uint8_t y, uint8_t bitmap[], uint8_t size_x, uint8_t size_y);
+void ssd1306_set_cursor(uint8_t x, uint8_t y);
 void ssd1306_clear();
 void ssd1306_update();
 

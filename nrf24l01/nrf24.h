@@ -72,6 +72,9 @@
 
 /*********************** Bit Mapping ************************/
 // CONFIG
+#define MASK_RX_DR              (1 << 6)
+#define MASK_TX_DS              (1 << 5)
+#define MASK_MAX_RT             (1 << 4)
 #define EN_CRC                  (1 << 3)
 #define CRCO                    (1 << 2)
 #define PWR_UP                  (1 << 1)
@@ -161,6 +164,12 @@
 #define EN_DYN_ACK              (1 << 0)
 /************************************************************/
 
+/********************** Struct Defines **********************/
+// RadioIrqs
+#define INT_EN                  1
+#define INT_DIS                 0
+/************************************************************/
+
 typedef enum {
     RF_SUCCESS = 0,
     INVALID_CONFIG,
@@ -197,6 +206,14 @@ typedef struct {
 
 } RadioParams;
 
+typedef struct {
+
+    uint8_t rx_dr;      // RX data received
+    uint8_t tx_ds;      // TX data sent
+    uint8_t max_rt;     // Max retries
+
+} RadioIrqs;
+
 void rf_init(RadioParams * radio);
 ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen);
 ErrorRF rf_listen(RadioParams * radio, uint32_t timeout);
@@ -205,6 +222,7 @@ void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count);
 void rf_set_channel(RadioParams * radio, uint8_t ch);
 void rf_set_data_rate(RadioParams * radio, uint8_t rate);
 void rf_set_power_level(RadioParams * radio, uint8_t power);
+void rf_set_irq(RadioParams * radio, RadioIrqs * irqs);
 void rf_flush_rx(RadioParams * radio);
 void rf_flush_tx(RadioParams * radio);
 

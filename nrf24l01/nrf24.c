@@ -308,6 +308,36 @@ void rf_set_power_level(RadioParams * radio, uint8_t power)
     rf_spi_transmit(radio, power_level, 2);
 }
 
+void rf_set_irq(RadioParams * radio, RadioIrqs * irqs)
+{
+    // do not modify other bits in CONFIG register
+    uint8_t cmd[2] = {CONFIG, 0};
+    uint8_t data[2];
+
+    rf_spi_transmit_receive(radio, cmd, data, 2);
+
+    uint8_t config = data[1];
+    config |= MASK_RX_DR | MASK_TX_DS | MASK_MAX_RT;            // disable all interrupts to start
+
+    // enable selected interrupts
+    if (irqs->rx_dr == INT_EN)
+    {
+        config &= ~MASK_RX_DR;
+    }
+    if (irqs->tx_ds == INT_EN)
+    {
+        config &= ~MASK_TX_DS;
+    }
+    if (irqs->max_rt == INT_EN)
+    {
+        config &= ~MASK_MAX_RT;
+    }
+
+    cmd[0] = CONFIG;
+    cmd[1] = config;
+    rf_spi_transmit(radio, cmd, 2);
+}
+
 void rf_flush_rx(RadioParams * radio)
 {
     uint8_t flush_rx = FLUSH_RX;

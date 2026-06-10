@@ -105,21 +105,137 @@
 #define Z_OFS_USR                   0x75
 /*********************************************************/
 
+/********************* Register Bitmaps ******************/
+// CTRL1_XL
+#define ODR_SHIFT                   4
+#define ODR_XL_SHIFT                4
+#define FS_XL_SHIFT                 2
+
+// CTRL2_G
+#define ODR_G_SHIFT                 4
+#define FS_G_SHIFT                  2
+
+// CTRL3_C
+#define BOOT                        0x80
+#define BDU                         0x40
+#define H_LACTIVE                   0x20
+#define PP_OD                       0x10
+#define SIM                         0x08
+#define IF_INC                      0x04
+#define BLE                         0x02
+#define SW_RESET                    0x01
+
+// CTRL4_C
+#define DEN_XL_EN                   0x80
+#define SLEEP                       0x40
+#define DEN_DRDY_INT1               0x20
+#define INT2_ON_INT1                0x10
+#define DRDY_MASK                   0x08
+#define I2C_DISABLE                 0x04
+#define LPF1_SEL_G                  0x02
+
+// CTRL5_C
+#define ROUNDING_SHIFT              5
+#define DEN_LH                      0x10
+#define ST_G_NORM                   0x00
+#define ST_G_POS                    0x04
+#define ST_G_NEG                    0x0C
+#define ST_XL_NORM                  0x00
+#define ST_XL_POS                   0x01
+#define ST_XL_NEG                   0x02
+
+// CTRL6_C
+#define TRIG_EN                     0x80
+#define LVL_EN                      0x40
+#define LVL2_EN                     0x20
+#define XL_HM_MODE                  0x10
+#define USR_OFF_W                   0x08
+#define FTYPE_MASK                  0x03                       
+
+// CTRL7_G
+#define G_HM_MODE                   0x80
+#define HP_EN_G                     0x40
+#define HP_G_16MILHZ                0x00
+#define HP_G_65MILHZ                0x10
+#define HP_G_260MILHZ               0x20
+#define HP_G_1_04HZ                 0x30
+#define HPM_G_MASK                  0x30
+#define ROUNDING_STATUS             0x04
+
+// CTRL8_XL
+#define LPF2_XL_EN                  0x80
+#define HPCF_XL1                    0x40
+#define HPCF_XL0                    0x20
+#define HP_REF_MODE                 0x10
+#define INPUT_COMPOSITE             0x08
+#define HP_SLOPE_XL_EN              0x04
+#define LOW_PASS_ON_6D              0x01
+
+// INT1_CTRL
+#define INT1_STEP_DETECTOR          0x80
+#define INT1_SIGN_MOT               0x40
+#define INT1_FULL_FLAG              0x20
+#define INT1_FIFO_OVR               0x10
+#define INT1_FTH                    0x08
+#define INT1_BOOT                   0x04
+#define INT1_DRDY_G                 0x02
+#define INT1_DRDY_XL                0x01
+
+// INT2_CTRL
+#define INT2_STEP_DELTA             0x80
+#define INT2_STEP_COUNT_OV          0x40
+#define INT2_FULL_FLAG              0x20
+#define INT2_FIFO_OVR               0x10
+#define INT2_FTH                    0x08
+#define INT2_BOOT                   0x04
+#define INT2_DRDY_G                 0x02
+#define INT2_DRDY_XL                0x01
 /*********************************************************/
+
+/********************* Struct Defines ********************/
+// Filter enables
+#define LPF_EN                      4
+#define LPF_DIS                     3
+#define HPF_EN                      2
+#define HPF_DIS                     1
+#define NO_FILTER                   0
+
 // ODR configurations
-#define ODR_12_5HZ                  0x01
-#define ODR_26HZ                    0x02
-#define ODR_52HZ                    0x03
-#define ODR_104HZ                   0x04
-#define ODR_208HZ                   0x05
-#define ODR_416HZ                   0x06
-#define ODR_833HZ                   0x07
-#define ODR_1_66KHZ                 0x08
-#define ODR_3_33KHZ                 0x09
-#define ODR_6_66KHZ                 0x0A
+#define ODR_PWR_DOWN                0x00 << ODR_SHIFT
+#define ODR_12_5HZ                  0x01 << ODR_SHIFT
+#define ODR_26HZ                    0x02 << ODR_SHIFT
+#define ODR_52HZ                    0x03 << ODR_SHIFT
+#define ODR_104HZ                   0x04 << ODR_SHIFT
+#define ODR_208HZ                   0x05 << ODR_SHIFT
+#define ODR_416HZ                   0x06 << ODR_SHIFT
+#define ODR_833HZ                   0x07 << ODR_SHIFT
+#define ODR_1_66KHZ                 0x08 << ODR_SHIFT
+#define ODR_3_33KHZ                 0x09 << ODR_SHIFT
+#define ODR_6_66KHZ                 0x0A << ODR_SHIFT
+
+// XL full-scale selection
+#define FS_XL_2G                    0x00 << FS_XL_SHIFT
+#define FS_XL_4G                    0x02 << FS_XL_SHIFT
+#define FS_XL_8G                    0x03 << FS_XL_SHIFT
+#define FS_XL_16G                   0x01 << FS_XL_SHIFT
+
+// Gyro full-scale selection
+#define FS_G_245DPS                 0x00 << FS_G_SHIFT
+#define FS_G_500DPS                 0x01 << FS_G_SHIFT
+#define FS_G_1000DPS                0x02 << FS_G_SHIFT
+#define FS_G_2000DPS                0x03 << FS_G_SHIFT
+/*********************************************************/
+
+/******************** Read-Only Registers ****************/
 // WHO_AM_I
 #define IMU_ID                      0x6A
 /*********************************************************/
+
+/****************** Mathematical Constants ***************/
+#define GRAVITY                     9.80665
+#define DEG_TO_RAD                  0.01745329
+/*********************************************************/
+
 
 typedef struct {
 
@@ -128,18 +244,37 @@ typedef struct {
     GPIO_TypeDef * cs_gpio;
     uint16_t cs;
 
-    uint8_t dr_xl;          // accelerometer data rate
-    uint8_t dr_g;           // gyroscope data rate
-
-    uint8_t lpf_en_xl;      // enable LPF for accelerometer
-    uint8_t lpf_en_g;       // enable LPF for gyroscope
-    uint8_t hpf_en_xl;      // enable HPF for accelerometer
-    uint8_t hpf_en_g;       // enable HPF for gyroscope
+    GyroParams gyro;
+    AccelParams xl;
 
 } IMUParams;
 
+typedef struct {
+    
+    uint8_t odr;
+    uint8_t fs;
+    uint8_t lpf;
+    uint8_t hpf;
+    uint8_t hp_cutoff;
+
+} GyroParams;
+
+typedef struct {
+
+    uint8_t odr;
+    uint8_t fs;
+    uint8_t filter_mode;
+
+} AccelParams;
+
 void imu_init(IMUParams * imu);
-void imu_read_accel(IMUParams * imu, int16_t * x, int16_t * y, int16_t * z);
-void imu_read_gyro(IMUParams * imu, int16_t * x, int16_t * y, int16_t * z);
+void imu_read_accel(IMUParams * imu, float * a_x, float * a_y, float * a_z);
+void imu_read_accel_raw(IMUParams * imu, int16_t * a_x_lsb, int16_t * a_y_lsb, int16_t * a_z_lsb);
+void imu_read_gyro(IMUParams * imu, float * w_x, float * w_y, float * w_z);
+void imu_read_gyro_raw(IMUParams * imu, int16_t * w_x_lsb, int16_t * w_y_lsb, int16_t * w_z_lsb);
+void gyro_powerdown(IMUParams * imu);
+void accel_powerdown(IMUParams * imu);
+void gyro_powerup(IMUParams * imu);
+void accel_powerup(IMUParams * imu);
 
 #endif

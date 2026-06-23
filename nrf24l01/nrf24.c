@@ -28,7 +28,7 @@ void rf_init(RadioParams * radio)
     uint8_t pwr_up[2] = {CONFIG | W_REGISTER, PWR_UP | EN_CRC};
     rf_spi_transmit(radio, pwr_up, 2);
     radio->delay_ms(2);
-    
+
     // default configurations
     rf_set_channel(radio, radio->freq_ch);
     rf_set_power_level(radio, radio->power_level);
@@ -333,7 +333,7 @@ void rf_set_irq(RadioParams * radio, RadioIrqs * irqs)
         config &= ~MASK_MAX_RT;
     }
 
-    cmd[0] = CONFIG;
+    cmd[0] = CONFIG | W_REGISTER;
     cmd[1] = config;
     rf_spi_transmit(radio, cmd, 2);
 }

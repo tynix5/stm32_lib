@@ -217,6 +217,7 @@ typedef struct {
 void rf_init(RadioParams * radio);
 ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen);
 ErrorRF rf_listen(RadioParams * radio, uint32_t timeout);
+ErrorRF rf_listen_it(RadioParams * radio);
 ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_t * ack, uint8_t alen);
 void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count);
 void rf_set_channel(RadioParams * radio, uint8_t ch);
@@ -225,5 +226,7 @@ void rf_set_power_level(RadioParams * radio, uint8_t power);
 void rf_set_irq(RadioParams * radio, RadioIrqs * irqs);
 void rf_flush_rx(RadioParams * radio);
 void rf_flush_tx(RadioParams * radio);
+uint8_t rf_read_status(RadioParams * radio);
+void rf_clear_status(RadioParams * radio);
 
 #endif

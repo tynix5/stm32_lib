@@ -10,7 +10,6 @@
 /**************************************** SPI Wrapper Functions **************************************/
 static void rf_disable(RadioParams * radio);
 static void rf_enable(RadioParams * radio);
-static uint8_t rf_read_status(RadioParams * radio);
 static void rf_spi_transmit(RadioParams * radio, uint8_t * data, uint8_t len);
 static void rf_spi_transmit_receive(RadioParams * radio, uint8_t * src, uint8_t * dest, uint8_t len);
 /*****************************************************************************************************/
@@ -222,6 +221,20 @@ ErrorRF rf_listen(RadioParams * radio, uint32_t timeout)
     return TIMEOUT;
 }
 
+ErrorRF rf_listen_it(RadioParams * radio)
+{
+    // move to receiver mode and then exit (waiting for pin interrupts)
+    // receiver --> PRIM_RX = 1, CE = 1
+    rf_disable(radio);
+
+    uint8_t en_rx[2] = {CONFIG | W_REGISTER, PWR_UP | PRIM_RX | EN_CRC};
+    rf_spi_transmit(radio, en_rx, 2);
+
+    rf_enable(radio);
+    
+    return RF_SUCCESS;
+}
+
 ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_t * ack, uint8_t alen)
 {
     // get packet width
@@ -268,7 +281,7 @@ ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_
     }
 
     // clear data ready flag after reading packet and loading acks
-    uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR};
+    uint8_t clear_dr[2] = {STATUS | W_REGISTER, RX_DR | TX_DS | MAX_RT};
     rf_spi_transmit(radio, clear_dr, 2);
 
     return RF_SUCCESS;
@@ -350,6 +363,27 @@ void rf_flush_tx(RadioParams * radio)
     rf_spi_transmit(radio, &flush_tx, 1);
 }
 
+uint8_t rf_read_status(RadioParams * radio)
+{
+    uint8_t nop = NOP;
+    uint8_t status;
+
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+    HAL_SPI_TransmitReceive(radio->hspi, &nop, &status, 1, HAL_TIMEOUT);
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+
+    return status;
+}
+
+void rf_clear_status(RadioParams * radio)
+{
+    uint8_t cmd[2] = {STATUS | W_REGISTER, RX_DR | TX_DS | MAX_RT};
+
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+    HAL_SPI_Transmit(radio->hspi, cmd, 2, HAL_TIMEOUT);
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+}
+
 /**************************************** SPI Wrapper Functions **************************************/
 static void rf_disable(RadioParams * radio)
 {
@@ -361,17 +395,6 @@ static void rf_enable(RadioParams * radio)
     HAL_GPIO_WritePin(radio->ce_gpio, radio->ce_pin, GPIO_PIN_SET);
 }
 
-static uint8_t rf_read_status(RadioParams * radio)
-{
-    uint8_t nop = NOP;
-    uint8_t status;
-
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
-    HAL_SPI_TransmitReceive(radio->hspi, &nop, &status, 1, HAL_TIMEOUT);
-    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
-
-    return status;
-}
 
 static void rf_spi_transmit(RadioParams * radio, uint8_t * data, uint8_t len)
 {

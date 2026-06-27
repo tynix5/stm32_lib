@@ -5,42 +5,79 @@
 #include "error_types.h"
 
 /******************* SPI Helper Functions ******************/
+/* Pull CS low */
 static inline void mag_select(MagParams * mag);
+/* Push CS high */
 static inline void mag_deselect(MagParams * mag);
+/* Write one byte to selected magnetometer register */
 static void mag_write_reg(MagParams * mag, uint8_t addr, uint8_t data);
+/* Read one byte from selected register */
 static uint8_t mag_read_reg(MagParams * mag, uint8_t addr);
+/* Read multiple bytes starting from selected register and auto-incrementing */
 static void mag_read(MagParams * mag, uint8_t start_addr, uint8_t len, uint8_t * data);
+/* Return status register */
 static uint8_t mag_status(MagParams * mag);
 /***********************************************************/
 
 ErrorType mag_init(MagParams * mag)
 {
+    // wait for power up
+    HAL_Delay(10);
 
+    while (mag_read_reg(mag, MAG_WHO_AM_I) != MAG_ID);          // wait until connection to magnetometer is present
+
+    // set output data rate and mode
+    uint8_t cfg_a = (mag->odr << 2) | mag->mode;
+    mag_write_reg(mag, MAG_CFG_REG_A, cfg_a);
+
+    // enable/disable lowpass filter
+    uint8_t cfg_b = 0;
+
+    if (mag->lpf == ENABLE)         cfg_b |= MAG_LPF;
+    else                            cfg_b &= ~MAG_LPF;
+    
+    mag_write_reg(mag, MAG_CFG_REG_B, cfg_b);
+    
+    // disable I2C; optionally select interrupt modes
+    uint8_t cfg_c = MAG_I2C_DIS;
+
+    if (mag->int_drdy == ENABLE)    cfg_c |= MAG_DRDY_ON_PIN;
+    else                            cfg_c &= ~MAG_DRDY_ON_PIN;
+
+    mag_write_reg(mag, MAG_CFG_REG_C, cfg_c);
+
+    // enable/disable specific interrupts
+    return SUCCESS;
 }
 
+// possibly add timeout to this?
 ErrorType mag_is_data_ready(MagParams * mag)
 {
+    // wait for new data available by polling status register
+    while (!(mag_status(mag) & MAG_ZYXDA));
 
+    return SUCCESS;
 }
 
 ErrorType mag_read_raw(MagParams * mag, int16_t * magx_lsb, int16_t * magy_lsb, int16_t * magz_lsb)
 {
+    uint8_t regs[6];
+    mag_read(mag, MAG_OUTX_L_REG, 6, regs);
 
+    // OUT_L_REG | (OUT_H_REG << 8)
+    *magx_lsb = regs[0] | (regs[1] << 8);
+    *magy_lsb = regs[2] | (regs[3] << 8);
+    *magz_lsb = regs[4] | (regs[5] << 8);
+
+    return SUCCESS;
 }
 
 ErrorType mag_read_gauss(MagParams * mag, float * magx, float * magy, float * magz)
 {
+    int16_t x, y, z;
+    mag_read_raw(mag, &x, &y, &z);
 
-}
-
-ErrorType mag_powerup(MagParams * mag)
-{
-
-}
-
-ErrorType mag_powerdown(MagParams * mag)
-{
-
+    return SUCCESS;
 }
 
 static inline void mag_select(MagParams * mag)
@@ -58,20 +95,18 @@ static void mag_write_reg(MagParams * mag, uint8_t addr, uint8_t data)
     uint8_t cmd[2] = {addr | MAG_WRITE, data};
 
     mag_select(mag);
-    HAL_SPI_Transmit(mag->hspi, cmd, 2, HAL_TIMEOUT);
+    HAL_SPI_Transmit(mag->hspi, cmd, 2, SPI_TIMEOUT_MS);
     mag_deselect(mag);
 }
 
 static uint8_t mag_read_reg(MagParams * mag, uint8_t addr)
 {
-
-    addr |= MAG_READ;
-    
     uint8_t data;
+    addr |= MAG_READ;
 
     mag_select(mag);
-    HAL_SPI_Transmit(mag->hspi, &addr, 1, HAL_TIMEOUT);
-    HAL_SPI_Receive(mag->hspi, &data, 1, HAL_TIMEOUT);
+    HAL_SPI_Transmit(mag->hspi, &addr, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(mag->hspi, &data, 1, SPI_TIMEOUT_MS);
     mag_deselect(mag);
 
     return data;
@@ -82,8 +117,8 @@ static void mag_read(MagParams * mag, uint8_t start_addr, uint8_t len, uint8_t *
     start_addr |= MAG_READ;
 
     mag_select(mag);
-    HAL_SPI_Transmit(mag->hspi, &start_addr, 1, HAL_TIMEOUT);
-    HAL_SPI_Receive(mag->hspi, data, len, HAL_TIMEOUT);
+    HAL_SPI_Transmit(mag->hspi, &start_addr, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(mag->hspi, data, len, SPI_TIMEOUT_MS);
     mag_deselect(mag);
 }
 

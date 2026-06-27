@@ -37,7 +37,7 @@
 
 /********************** Register Bitmaps *******************/
 // WHO_AM_I
-#define MAG_ID                          0x4F
+#define MAG_ID                          0x40
 
 // CFG_REG_A
 #define MAG_COMP_TEMP_EN                (1 << 7)
@@ -102,8 +102,10 @@
 #define MAG_XDA                         (1 << 0)
 /***********************************************************/
 
-#define LPF_EN                          1
-#define LPF_DIS                         0
+#define ENABLE                          1
+#define DISABLE                         0
+
+#define SPI_TIMEOUT_MS                  5               // ms
 
 typedef struct {
 
@@ -115,14 +117,18 @@ typedef struct {
     uint8_t lpf;                        // lowpass filter enable/disable
     uint8_t odr;                        // output data rate
     uint8_t mode;                       // sampling mode
+
+    uint8_t int_drdy;                   // interrupt on DRDY pin enable/disable
     
 } MagParams;
 
+/* Initiate magnetometer over SPI, choosing filter, output data rate, and modes */
 ErrorType mag_init(MagParams * mag);
+/* Poll magnetometer until new data is available (blocking) */
 ErrorType mag_is_data_ready(MagParams * mag);
+/* Read magnetometer X, Y, and Z registers */
 ErrorType mag_read_raw(MagParams * mag, int16_t * magx_lsb, int16_t * magy_lsb, int16_t * magz_lsb);
+/* Read magnetometer X, Y, and Z registers, then convert to gauss */
 ErrorType mag_read_gauss(MagParams * mag, float * magx, float * magy, float * magz);
-ErrorType mag_powerup(MagParams * mag);
-ErrorType mag_powerdown(MagParams * mag);
 
 #endif

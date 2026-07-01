@@ -102,17 +102,14 @@
 #define MAG_XDA                         (1 << 0)
 /***********************************************************/
 
-#define ENABLE                          1
-#define DISABLE                         0
-
-#define SPI_TIMEOUT_MS                  5               // ms
-
 typedef struct {
 
-    SPI_HandleTypeDef * hspi;
+    SPI_HandleTypeDef * hspi;           // SPI handle
     
-    GPIO_TypeDef * cs_gpio;
-    uint16_t cs;
+    GPIO_TypeDef * cs_gpio;             // SPI CS GPIO port
+    uint16_t cs;                        // SPI CS pin
+
+    void (*delay_ms)(uint32_t);         // pointer to delay function
     
     uint8_t lpf;                        // lowpass filter enable/disable
     uint8_t odr;                        // output data rate
@@ -125,7 +122,7 @@ typedef struct {
 /* Initiate magnetometer over SPI, choosing filter, output data rate, and modes */
 ErrorType mag_init(MagParams * mag);
 /* Poll magnetometer until new data is available (blocking) */
-ErrorType mag_is_data_ready(MagParams * mag);
+ErrorType mag_is_data_ready(MagParams * mag, uint32_t timeout_ms);
 /* Read magnetometer X, Y, and Z registers */
 ErrorType mag_read_raw(MagParams * mag, int16_t * magx_lsb, int16_t * magy_lsb, int16_t * magz_lsb);
 /* Read magnetometer X, Y, and Z registers, then convert to gauss */

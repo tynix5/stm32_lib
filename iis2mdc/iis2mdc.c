@@ -5,15 +5,15 @@
 #include "error_types.h"
 
 /******************* SPI Helper Functions ******************/
-/* Pull CS low */
+/* CS low */
 static inline void mag_select(MagParams * mag);
-/* Push CS high */
+/* CS high */
 static inline void mag_deselect(MagParams * mag);
 /* Write one byte to selected magnetometer register */
 static void mag_write_reg(MagParams * mag, uint8_t addr, uint8_t data);
 /* Read one byte from selected register */
 static uint8_t mag_read_reg(MagParams * mag, uint8_t addr);
-/* Read multiple bytes starting from selected register and auto-incrementing */
+/* Read multiple bytes starting from selected register and auto-increment address */
 static void mag_read(MagParams * mag, uint8_t start_addr, uint8_t len, uint8_t * data);
 /* Return status register */
 static uint8_t mag_status(MagParams * mag);
@@ -21,10 +21,23 @@ static uint8_t mag_status(MagParams * mag);
 
 ErrorType mag_init(MagParams * mag)
 {
-    // wait for power up
-    HAL_Delay(10);
+    mag_deselect(mag);
 
-    while (mag_read_reg(mag, MAG_WHO_AM_I) != MAG_ID);          // wait until connection to magnetometer is present
+    // wait for power up
+    mag->delay_ms(10);
+
+    uint8_t retries = 0;
+    // wait until connection to magnetometer is present
+    while (mag_read_reg(mag, MAG_WHO_AM_I) != MAG_ID)
+    {
+        // exit if maximum retries reached
+        if (retries == SPI_MAX_RETRIES)
+            return TIMEOUT;
+        
+        retries++;
+        mag->delay_ms(10);
+    }
+        
 
     // set output data rate and mode
     uint8_t cfg_a = (mag->odr << 2) | mag->mode;
@@ -50,11 +63,16 @@ ErrorType mag_init(MagParams * mag)
     return SUCCESS;
 }
 
-// possibly add timeout to this?
-ErrorType mag_is_data_ready(MagParams * mag)
+ErrorType mag_is_data_ready(MagParams * mag, uint32_t timeout_ms)
 {
+    uint32_t start_tick = HAL_GetTick();
+
     // wait for new data available by polling status register
-    while (!(mag_status(mag) & MAG_ZYXDA));
+    while (!(mag_status(mag) & MAG_ZYXDA))
+    {
+        if (HAL_GetTick() - start_tick > timeout_ms)
+            return TIMEOUT;
+    }
 
     return SUCCESS;
 }

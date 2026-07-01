@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "stm32f446xx.h"
 #include "stm32f4xx_hal.h"
+#include "error_types.h"
 
 #define BAR_READ                        0x80
 #define BAR_WRITE                       0x00
@@ -145,27 +146,38 @@
 #define BAR_SCALING_FACTOR              1.0 / 4069.0
 /*********************************************************/
 
+#define SPI_TIMEOUT_MS                  5
+#define SPI_RETRIES                     5
+
 typedef struct {
 
-    SPI_HandleTypeDef * hspi;
+    SPI_HandleTypeDef * hspi;               // SPI handle
 
-    GPIO_TypeDef * cs_gpio;
-    uint16_t cs;
+    GPIO_TypeDef * cs_gpio;                 // SPI CS GPIO port
+    uint16_t cs;                            // SPI CS pin
 
-    uint8_t odr;                    // output data rate
+    void (*delay_ms)(uint32_t);             // pointer to delay function
+
+    uint8_t odr;                            // output data rate
 
     uint8_t fifo_mode;
-    uint8_t fifo_thresh;            // only applicable for FIFO modes
-    uint8_t fifo_moving_avg_size;         // only applicable for FIFO_MEAN_MODE
+    uint8_t fifo_thresh;                    // only applicable for FIFO modes
+    uint8_t fifo_moving_avg_size;           // only applicable for FIFO_MEAN_MODE
     uint8_t decimate;
 
 } BarParams;
 
-void bar_init(BarParams * bar);
-void bar_is_data_ready(BarParams * bar);            // returns when new data is available
-int32_t bar_read_press_lsb(BarParams * bar);        // retrieves raw data from registers
-float bar_read_press_hpa(BarParams * bar);          // reads and converts pressure data to hPa
-void bar_powerdown(BarParams * bar);                // power-down sensor
-void bar_powerup(BarParams * bar);                  // turn sensor on
+/* Initialize LPS25HB barometer over SPI, choosing FIFO/output modes and decimation */
+ErrorType bar_init(BarParams * bar);
+/* Wait until new data is available by polling status register (blocking) */
+ErrorType bar_is_data_ready(BarParams * bar, uint32_t timeout_ms);
+/* Read raw pressure output registers */
+int32_t bar_read_press_lsb(BarParams * bar);
+/* Read raw pressure output registers, then convert to hPa */
+float bar_read_press_hpa(BarParams * bar);
+/* Power down barometer */
+ErrorType bar_powerdown(BarParams * bar);
+/* Power up barometer */
+ErrorType bar_powerup(BarParams * bar);
 
 #endif

@@ -2,19 +2,37 @@
 #include "lps25hb.h"
 
 /********************** SPI Wrapper Functions *****************/
+/* CS low */
 static inline void bar_select(BarParams * bar);
+/* CS high */
 static inline void bar_deselect(BarParams * bar);
+/* Write data to specific address using SPI */
 static void bar_write_reg(BarParams * bar, uint8_t addr, uint8_t data);
+/* Read byte from selected address using SPI */
 static uint8_t bar_read_reg(BarParams * bar, uint8_t addr);
+/* Multi-byte read over SPI */
 static void bar_read(BarParams * bar, uint8_t start_addr, uint8_t len, uint8_t * data);
+/* Read status register */
 static uint8_t bar_status(BarParams * bar);
 /**************************************************************/
 
-void bar_init(BarParams * bar)
+ErrorType bar_init(BarParams * bar)
 {
     bar_deselect(bar);
 
-    while (bar_read_reg(bar, BAR_WHO_AM_I) != BAR_ID);          // ensure communication is successful
+    // wait for power up
+    bar->delay_ms(10);
+
+    uint8_t retries = 0;
+    // wait until communication is successful
+    while (bar_read_reg(bar, BAR_WHO_AM_I) != BAR_ID)
+    {
+        if (retries == SPI_MAX_RETRIES)
+            return TIMEOUT;
+        
+        retries++;
+        bar->delay_ms(10);
+    }
 
     uint8_t ctrl_reg2 = 0, fifo_ctrl = 0;
 
@@ -45,14 +63,16 @@ void bar_init(BarParams * bar)
 
     fifo_ctrl |= bar->fifo_mode & 0xe0;         // set FIFO mode
 
-    bar_write_reg(bar, BAR_CTRL_REG1, BAR_PD | bar->odr);     // power-on and select output data rate selection
+    bar_write_reg(bar, BAR_CTRL_REG1, BAR_PD | bar->odr);       // power-on and select output data rate selection
     bar_write_reg(bar, BAR_CTRL_REG2, ctrl_reg2);
     bar_write_reg(bar, BAR_CTRL_REG3, BAR_INT_D_SIG);
     bar_write_reg(bar, BAR_CTRL_REG4, BAR_DRDY);                // interrupt on data ready signal
     bar_write_reg(bar, BAR_FIFO_CTRL, fifo_ctrl);
+
+    return SUCCESS;
 }
 
-void bar_is_data_ready(BarParams * bar)
+ErrorType bar_is_data_ready(BarParams * bar, uint32_t timeout_ms)
 {
     // for ONE_SHOT mode, trigger sample and wait for STATUS_REG
     // if not in ONE_SHOT mode, wait until STATUS_REG is updated
@@ -62,7 +82,16 @@ void bar_is_data_ready(BarParams * bar)
         ctrl_reg2 |= BAR_ONE_SHOT;              // enable one shot --> begins transaction
     }
 
-    while (!(bar_status(bar) & BAR_P_DA));      // wait for pressure data to become available, then return
+    uint32_t start_tick = HAL_GetTick();
+
+    // wait until pressure data becomes available, or timeout
+    while (!(bar_status(bar) & BAR_P_DA))
+    {
+        if (HAL_GetTick() - start_tick > timeout_ms)
+            return TIMEOUT;
+    }
+
+    return SUCCESS;
 }
 
 int32_t bar_read_press_lsb(BarParams * bar)
@@ -89,20 +118,24 @@ float bar_read_press_hpa(BarParams * bar)
     return (float) press_lsb * BAR_SCALING_FACTOR;
 }
 
-void bar_powerdown(BarParams * bar)
+ErrorType bar_powerdown(BarParams * bar)
 {
     uint8_t ctrl_reg1 = bar_read_reg(bar, BAR_CTRL_REG1);
 
     ctrl_reg1 &= ~BAR_PD;           // power-down mode
     bar_write_reg(bar, BAR_CTRL_REG1, ctrl_reg1);
+
+    return SUCCESS;
 }
 
-void bar_powerup(BarParams * bar)
+ErrorType bar_powerup(BarParams * bar)
 {
     uint8_t ctrl_reg1 = bar_read_reg(bar, BAR_CTRL_REG1);
 
     ctrl_reg1 |= BAR_PD;           // active mode
     bar_write_reg(bar, BAR_CTRL_REG1, ctrl_reg1);
+
+    return SUCCESS;
 }
 
 static inline void bar_select(BarParams * bar)

@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include "stm32f446xx.h"
 #include "stm32f4xx_hal.h"
+#include "error_types.h"
 
 #define IMU_READ                        0x80
 #define IMU_WRITE                       0x00
@@ -238,8 +239,8 @@
 
 typedef struct {
     
-    uint8_t odr;
-    uint8_t fs;
+    uint8_t odr;                            // output data rate
+    uint8_t fs;                             // full-scale range
     uint8_t lpf;
     uint8_t hpf;
     uint8_t hp_cutoff;
@@ -248,33 +249,45 @@ typedef struct {
 
 typedef struct {
 
-    uint8_t odr;
-    uint8_t fs;
-    uint8_t filter_mode;
+    uint8_t odr;                            // output data rate
+    uint8_t fs;                             // full-scale range
+    uint8_t filter_mode;                    // high/low pass filter
 
 } AccelParams;
 
 typedef struct {
 
-    SPI_HandleTypeDef * hspi;
+    SPI_HandleTypeDef * hspi;               // SPI handle
 
-    GPIO_TypeDef * cs_gpio;
-    uint16_t cs;
+    GPIO_TypeDef * cs_gpio;                 // SPI CS GPIO port
+    uint16_t cs;                            // SPI CS pin
 
-    GyroParams gyro;
-    AccelParams xl;
+    void (*delay_ms)(uint32_t);             // pointer to delay function
+
+    GyroParams gyro;                        // gyroscope parameters
+    AccelParams xl;                         // accelerometer parameters
 
 } IMUParams;
 
-
-void imu_init(IMUParams * imu);
-void imu_read_accel(IMUParams * imu, float * a_x, float * a_y, float * a_z);
-void imu_read_accel_raw(IMUParams * imu, int16_t * a_x_lsb, int16_t * a_y_lsb, int16_t * a_z_lsb);
-void imu_read_gyro(IMUParams * imu, float * w_x, float * w_y, float * w_z);
-void imu_read_gyro_raw(IMUParams * imu, int16_t * w_x_lsb, int16_t * w_y_lsb, int16_t * w_z_lsb);
-void gyro_powerdown(IMUParams * imu);
-void accel_powerdown(IMUParams * imu);
-void gyro_powerup(IMUParams * imu);
-void accel_powerup(IMUParams * imu);
+/* Initialize gyroscope + accelerometer, selecting filter types and output rates over SPI */
+ErrorType imu_init(IMUParams * imu);
+/* Read raw accelerometer data, then convert to m/s^2 */
+ErrorType imu_read_accel_mps2(IMUParams * imu, float * a_x, float * a_y, float * a_z);
+/* Read raw accelerometer data */
+ErrorType imu_read_accel_raw(IMUParams * imu, int16_t * a_x_lsb, int16_t * a_y_lsb, int16_t * a_z_lsb);
+/* Read raw gyroscope data, then convert to rad/s */
+ErrorType imu_read_gyro_radps(IMUParams * imu, float * w_x, float * w_y, float * w_z);
+/* Read raw gyroscope data, then convert to deg/s */
+ErrorType imu_read_gyro_degps(IMUParams * imu, float * w_x, float * w_y, float * w_z);
+/* Read raw gyroscope data */
+ErrorType imu_read_gyro_raw(IMUParams * imu, int16_t * w_x_lsb, int16_t * w_y_lsb, int16_t * w_z_lsb);
+/* Turn off gyroscope */
+ErrorType gyro_powerdown(IMUParams * imu);
+/* Turn off accelerometer */
+ErrorType accel_powerdown(IMUParams * imu);
+/* Turn on gyroscope */
+ErrorType gyro_powerup(IMUParams * imu);
+/* Turn on accelerometer */
+ErrorType accel_powerup(IMUParams * imu);
 
 #endif

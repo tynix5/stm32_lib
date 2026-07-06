@@ -115,7 +115,7 @@ void rf_init(RadioParams * radio)
 ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen)
 {
     if (plen > MAX_PKT_SIZE)
-        return INVALID_CONFIG;
+        return RF_INVALID_CONFIG;
 
     // ensure mode is in standby before placing in tx mode
     rf_disable(radio);
@@ -149,7 +149,7 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
             uint8_t reset_max_rt[2] = {STATUS | W_REGISTER, MAX_RT};
             rf_spi_transmit(radio, reset_max_rt, 2);
             rf_flush_tx(radio);
-            return MAX_RETRIES;
+            return RF_MAX_RETRIES;
         }
         else if (status & TX_DS)
         {
@@ -174,7 +174,7 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
         if (*alen > MAX_PKT_SIZE)
         {
             rf_flush_rx(radio);
-            return INVALID_PACKET;
+            return RF_INVALID_PACKET;
         }
         else if (*alen != 0)
         {
@@ -218,7 +218,7 @@ ErrorRF rf_listen(RadioParams * radio, uint32_t timeout)
         ticks++;
     }
 
-    return TIMEOUT;
+    return RF_TIMEOUT;
 }
 
 ErrorRF rf_listen_it(RadioParams * radio)
@@ -255,7 +255,7 @@ ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_
     {
         rf_flush_rx(radio);
         *plen = 0;
-        return INVALID_PACKET;
+        return RF_INVALID_PACKET;
     }
 
     // read packet

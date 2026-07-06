@@ -172,10 +172,10 @@
 
 typedef enum {
     RF_SUCCESS = 0,
-    INVALID_CONFIG,
-    INVALID_PACKET,
-    MAX_RETRIES,
-    TIMEOUT,
+    RF_INVALID_CONFIG,
+    RF_INVALID_PACKET,
+    RF_MAX_RETRIES,
+    RF_TIMEOUT,
 } ErrorRF;
 
 typedef struct {

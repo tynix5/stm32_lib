@@ -12,9 +12,9 @@
 /************************ Registers ************************/
 #define MAG_OFFSET_X_REG_L              0x45
 #define MAG_OFFSET_X_REG_H              0x46
-#define MAG_OFFSET_Y_REG_H              0x47
+#define MAG_OFFSET_Y_REG_L              0x47
 #define MAG_OFFSET_Y_REG_H              0x48
-#define MAG_OFFSET_Z_REG_H              0x49
+#define MAG_OFFSET_Z_REG_L              0x49
 #define MAG_OFFSET_Z_REG_H              0x4A
 #define MAG_WHO_AM_I                    0x4F
 #define MAG_CFG_REG_A                   0x60

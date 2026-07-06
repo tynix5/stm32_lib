@@ -1,3 +1,5 @@
+#ifndef ERROR_TYPES_H_
+#define ERROR_TYPES_H_
 
 /************ Generic Global Defines *************/
 #define SPI_TIMEOUT_MS                  5
@@ -9,8 +11,10 @@
 /************** Generic Error Types **************/
 typedef enum {
 
-    SUCCESS = 0,
-    TIMEOUT,
+    // SUCCESS = 0,
+    TIMEOUT = 1,
     INVALID_CFG
 
 } ErrorType;
+
+#endif

@@ -41,7 +41,7 @@ ErrorType imu_init(IMUParams * imu)
             return TIMEOUT;
 
         retries++;
-        imu-->delay_ms(10);
+        imu->delay_ms(10);
     }
 
     // configure FIFOs

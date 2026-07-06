@@ -74,6 +74,8 @@ ErrorType imu_init(IMUParams * imu)
 
 ErrorType imu_read_accel_mps2(IMUParams * imu, float * a_x, float * a_y, float * a_z)
 {
+    while (!(imu_read_reg(imu, IMU_STATUS_REG) & 0x1));
+
     uint8_t a[6];
     imu_read(imu, IMU_OUTX_L_XL, 6, a);
 
@@ -366,7 +368,7 @@ static void imu_write_reg(IMUParams * imu, uint8_t addr, uint8_t data)
     uint8_t cmd[2] = {addr | IMU_WRITE, data};
     
     imu_select(imu);
-    HAL_SPI_Transmit(imu->hspi, cmd, 2, HAL_TIMEOUT);
+    HAL_SPI_Transmit(imu->hspi, cmd, 2, SPI_TIMEOUT_MS);
     imu_deselect(imu);
 }
 
@@ -376,8 +378,8 @@ static uint8_t imu_read_reg(IMUParams * imu, uint8_t addr)
     addr |= IMU_READ;
     
     imu_select(imu);
-    HAL_SPI_Transmit(imu->hspi, &addr, 1, HAL_TIMEOUT);
-    HAL_SPI_Receive(imu->hspi, &result, 1, HAL_TIMEOUT);
+    HAL_SPI_Transmit(imu->hspi, &addr, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(imu->hspi, &result, 1, SPI_TIMEOUT_MS);
     imu_deselect(imu);
     
     return result;
@@ -390,8 +392,8 @@ static void imu_read(IMUParams * imu, uint8_t start_addr, uint8_t len, uint8_t *
     start_addr |= IMU_READ;
 
     imu_select(imu);
-    HAL_SPI_Transmit(imu->hspi, &start_addr, 1, HAL_TIMEOUT);
-    HAL_SPI_Receive(imu->hspi, data, len, HAL_TIMEOUT);
+    HAL_SPI_Transmit(imu->hspi, &start_addr, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(imu->hspi, data, len, SPI_TIMEOUT_MS);
     imu_deselect(imu);
 }
 

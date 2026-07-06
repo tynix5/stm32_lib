@@ -99,15 +99,16 @@ int32_t bar_read_press_lsb(BarParams * bar)
     uint8_t p[3];
     bar_read(bar, BAR_PRESS_OUT_XL, 3, p);      // read XL, L, and H registers
 
-    int32_t press_lsb = (p[2] << 16) | (p[1] << 8) | p[0];      // create 24-bit pressure value
+    uint32_t press_lsb = (p[2] << 16) | (p[1] << 8) | p[0];      // create 24-bit pressure value
 
     // if PRESS_OUT_H is negative, make sure press_lsb is negative
+    // check this 
     if (p[2] & 0x80)
     {
         press_lsb |= 0xff000000;        // convert to negative
     }
 
-    return press_lsb;
+    return (int32_t) press_lsb;
 }
 
 float bar_read_press_hpa(BarParams * bar)
@@ -153,7 +154,7 @@ static void bar_write_reg(BarParams * bar, uint8_t addr, uint8_t data)
     uint8_t cmd[2] = {addr | BAR_WRITE, data};
 
     bar_select(bar);
-    HAL_SPI_Transmit(bar->hspi, cmd, 2, HAL_TIMEOUT);
+    HAL_SPI_Transmit(bar->hspi, cmd, 2, SPI_TIMEOUT_MS);
     bar_deselect(bar);
 }
 
@@ -164,8 +165,8 @@ static uint8_t bar_read_reg(BarParams * bar, uint8_t addr)
     uint8_t data;
 
     bar_select(bar);
-    HAL_SPI_Transmit(bar->hspi, &addr, 1, HAL_TIMEOUT);
-    HAL_SPI_Receive(bar->hspi, &data, 1, HAL_TIMEOUT);
+    HAL_SPI_Transmit(bar->hspi, &addr, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(bar->hspi, &data, 1, SPI_TIMEOUT_MS);
     bar_deselect(bar);
 
     return data;
@@ -174,10 +175,13 @@ static uint8_t bar_read_reg(BarParams * bar, uint8_t addr)
 static void bar_read(BarParams * bar, uint8_t start_addr, uint8_t len, uint8_t * data)
 {
     start_addr |= BAR_READ;
+    start_addr |= BAR_ADDR_INC;
+
+    // page 28 of datasheet, bit 6 (MS) must be 1 to increment address
 
     bar_select(bar);
-    HAL_SPI_Transmit(bar->hspi, &start_addr, 1, HAL_TIMEOUT);
-    HAL_SPI_Receive(bar->hspi, data, len, HAL_TIMEOUT);
+    HAL_SPI_Transmit(bar->hspi, &start_addr, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(bar->hspi, data, len, SPI_TIMEOUT_MS);
     bar_deselect(bar);
 }
 

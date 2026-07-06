@@ -8,6 +8,7 @@
 
 #define BAR_READ                        0x80
 #define BAR_WRITE                       0x00
+#define BAR_ADDR_INC                    0x40
 
 /********************* Register Map **********************/
 #define BAR_REF_P_XL                    0x08

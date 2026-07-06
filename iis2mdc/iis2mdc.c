@@ -40,12 +40,13 @@ ErrorType mag_init(MagParams * mag)
         
 
     // set output data rate and mode
-    uint8_t cfg_a = (mag->odr << 2) | mag->mode;
+    uint8_t cfg_a = mag->odr | mag->mode;
     mag_write_reg(mag, MAG_CFG_REG_A, cfg_a);
 
+    
     // enable/disable lowpass filter
     uint8_t cfg_b = 0;
-
+    
     if (mag->lpf == ENABLE)         cfg_b |= MAG_LPF;
     else                            cfg_b &= ~MAG_LPF;
     
@@ -53,12 +54,12 @@ ErrorType mag_init(MagParams * mag)
     
     // disable I2C; optionally select interrupt modes
     uint8_t cfg_c = MAG_I2C_DIS;
-
+    
     if (mag->int_drdy == ENABLE)    cfg_c |= MAG_DRDY_ON_PIN;
     else                            cfg_c &= ~MAG_DRDY_ON_PIN;
-
+    
     mag_write_reg(mag, MAG_CFG_REG_C, cfg_c);
-
+    
     // enable/disable specific interrupts
     return SUCCESS;
 }

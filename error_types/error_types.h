@@ -11,7 +11,7 @@
 /************** Generic Error Types **************/
 typedef enum {
 
-    // SUCCESS = 0,
+    // SUCCESS = 0,         // TYPE_OK?
     TIMEOUT = 1,
     INVALID_CFG
 

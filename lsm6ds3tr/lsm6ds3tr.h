@@ -108,7 +108,6 @@
 
 /********************* Register Bitmaps ******************/
 // CTRL1_XL
-#define IMU_ODR_SHIFT                   4
 #define IMU_ODR_XL_SHIFT                4
 #define IMU_FS_XL_SHIFT                 2
 
@@ -156,11 +155,8 @@
 // CTRL7_G
 #define IMU_G_HM_MODE                   0x80
 #define IMU_HP_EN_G                     0x40
-#define IMU_HP_G_16MILHZ                0x00
-#define IMU_HP_G_65MILHZ                0x10
-#define IMU_HP_G_260MILHZ               0x20
-#define IMU_HP_G_1_04HZ                 0x30
 #define IMU_HPM_G_MASK                  0x30
+#define IMU_HPM_G_SHIFT                 4
 #define IMU_ROUNDING_STATUS             0x04
 
 // CTRL8_XL
@@ -193,45 +189,6 @@
 #define IMU_INT2_DRDY_XL                0x01
 /*********************************************************/
 
-/********************* Struct Defines ********************/
-/***************************************************************************************** */
-/*********************************Change these to all enums*********************** */
-/***************************************************************************************** */
-/***************************************************************************************** */
-// Filter enables
-#define IMU_LPF_EN                      4
-#define IMU_LPF_DIS                     3
-#define IMU_HPF_EN                      2
-#define IMU_HPF_DIS                     1
-#define IMU_NO_FILTER                   0
-
-
-// ODR configurations
-#define IMU_ODR_PWR_DOWN                0x00 << IMU_ODR_SHIFT
-#define IMU_ODR_12_5HZ                  0x01 << IMU_ODR_SHIFT
-#define IMU_ODR_26HZ                    0x02 << IMU_ODR_SHIFT
-#define IMU_ODR_52HZ                    0x03 << IMU_ODR_SHIFT
-#define IMU_ODR_104HZ                   0x04 << IMU_ODR_SHIFT
-#define IMU_ODR_208HZ                   0x05 << IMU_ODR_SHIFT
-#define IMU_ODR_416HZ                   0x06 << IMU_ODR_SHIFT
-#define IMU_ODR_833HZ                   0x07 << IMU_ODR_SHIFT
-#define IMU_ODR_1_66KHZ                 0x08 << IMU_ODR_SHIFT
-#define IMU_ODR_3_33KHZ                 0x09 << IMU_ODR_SHIFT
-#define IMU_ODR_6_66KHZ                 0x0A << IMU_ODR_SHIFT
-
-// XL full-scale selection
-#define IMU_FS_XL_2G                    0x00 << IMU_FS_XL_SHIFT
-#define IMU_FS_XL_4G                    0x02 << IMU_FS_XL_SHIFT
-#define IMU_FS_XL_8G                    0x03 << IMU_FS_XL_SHIFT
-#define IMU_FS_XL_16G                   0x01 << IMU_FS_XL_SHIFT
-
-// Gyro full-scale selection
-#define IMU_FS_G_245DPS                 0x00 << IMU_FS_G_SHIFT
-#define IMU_FS_G_500DPS                 0x01 << IMU_FS_G_SHIFT
-#define IMU_FS_G_1000DPS                0x02 << IMU_FS_G_SHIFT
-#define IMU_FS_G_2000DPS                0x03 << IMU_FS_G_SHIFT
-/*********************************************************/
-
 /******************** Read-Only Registers ****************/
 // WHO_AM_I
 #define IMU_ID                          0x6A
@@ -242,23 +199,81 @@
 #define IMU_DEG_TO_RAD                  0.01745329
 /*********************************************************/
 
-typedef struct {
+// filter selections for acclerometer and gyroscope
+typedef enum : uint8_t {
     
-    uint8_t odr;                            // output data rate
-    uint8_t fs;                             // full-scale range
-    uint8_t lpf;
-    uint8_t hpf;
-    uint8_t hp_cutoff;
+    IMU_NO_FILTER = 0,
+    IMU_LPF_EN,
+    IMU_HPF_EN,
+    IMU_BPF_EN
+    
+} ImuFilterMode;
 
-} GyroParams;
+// gyroscope highpass filter cutoff selection
+typedef enum : uint8_t {
 
-typedef struct {
+    IMU_HP_G_16MILHZ = 0,
+    IMU_HP_G_65MILHZ,
+    IMU_HP_G_260MILHZ,
+    IMU_HP_G_1_04HZ
 
-    uint8_t odr;                            // output data rate
-    uint8_t fs;                             // full-scale range
-    uint8_t filter_mode;                    // high/low pass filter
+} GyroHighpassCutoff;
 
-} AccelParams;
+// gyroscope output data rates
+typedef enum : uint8_t {
+
+    IMU_ODR_G_PWR_DOWN = 0,
+    IMU_ODR_G_12_5HZ,  
+    IMU_ODR_G_26HZ,    
+    IMU_ODR_G_52HZ,   
+    IMU_ODR_G_104HZ,   
+    IMU_ODR_G_208HZ,   
+    IMU_ODR_G_416HZ,   
+    IMU_ODR_G_833HZ,   
+    IMU_ODR_G_1_66KHZ,
+    IMU_ODR_G_3_33KHZ, 
+    IMU_ODR_G_6_66KHZ
+
+} GyroOdr;
+
+// accelerometer output data rates
+typedef enum : uint8_t {
+
+    IMU_ODR_XL_PWR_DOWN = 0,
+    IMU_ODR_XL_12_5HZ,  
+    IMU_ODR_XL_26HZ,    
+    IMU_ODR_XL_52HZ,   
+    IMU_ODR_XL_104HZ,   
+    IMU_ODR_XL_208HZ,   
+    IMU_ODR_XL_416HZ,   
+    IMU_ODR_XL_833HZ,   
+    IMU_ODR_XL_1_66KHZ,
+    IMU_ODR_XL_3_33KHZ, 
+    IMU_ODR_XL_6_66KHZ,
+    IMU_ODR_XL_1_6HZ
+    
+} AccelOdr;
+
+// gyroscope full-scale selection
+typedef enum : uint8_t {
+
+    IMU_FS_G_245DPS = 0, 
+    IMU_FS_G_500DPS,
+    IMU_FS_G_1000DPS,
+    IMU_FS_G_2000DPS
+
+} GyroFs;
+
+// accelerometer full-scale selection
+typedef enum : uint8_t {
+
+    IMU_FS_XL_2G = 0, 
+    IMU_FS_XL_16G,
+    IMU_FS_XL_4G, 
+    IMU_FS_XL_8G
+
+} AccelFs;
+
 
 typedef struct {
 
@@ -269,30 +284,40 @@ typedef struct {
 
     void (*delay_ms)(uint32_t);             // pointer to delay function
 
-    GyroParams gyro;                        // gyroscope parameters
-    AccelParams xl;                         // accelerometer parameters
+    struct {
+        GyroOdr odr;                        // gyro output data rate
+        GyroFs fs;                          // gyro full-scale range
+        ImuFilterMode filt;                 // filter selection
+        GyroHighpassCutoff cutoff;          // high pass filter cutoff
+    } GyroParams;
 
-} IMUParams;
+    struct {
+        AccelOdr odr;                       // accel output data rate
+        AccelFs fs;                         // accel full-scale range
+        ImuFilterMode filt;                 // filter selection
+    } AccelParams;
+
+} ImuParams;
 
 /* Initialize gyroscope + accelerometer, selecting filter types and output rates over SPI */
-ErrorType imu_init(IMUParams * imu);
+ErrorType imu_init(ImuParams * imu);
 /* Read raw accelerometer data, then convert to m/s^2 */
-ErrorType imu_read_accel_mps2(IMUParams * imu, float * a_x, float * a_y, float * a_z);
+ErrorType imu_read_accel_mps2(ImuParams * imu, float * a_x, float * a_y, float * a_z);
 /* Read raw accelerometer data */
-ErrorType imu_read_accel_raw(IMUParams * imu, int16_t * a_x_lsb, int16_t * a_y_lsb, int16_t * a_z_lsb);
+ErrorType imu_read_accel_raw(ImuParams * imu, int16_t * a_x_lsb, int16_t * a_y_lsb, int16_t * a_z_lsb);
 /* Read raw gyroscope data, then convert to rad/s */
-ErrorType imu_read_gyro_radps(IMUParams * imu, float * w_x, float * w_y, float * w_z);
+ErrorType imu_read_gyro_radps(ImuParams * imu, float * w_x, float * w_y, float * w_z);
 /* Read raw gyroscope data, then convert to deg/s */
-ErrorType imu_read_gyro_degps(IMUParams * imu, float * w_x, float * w_y, float * w_z);
+ErrorType imu_read_gyro_degps(ImuParams * imu, float * w_x, float * w_y, float * w_z);
 /* Read raw gyroscope data */
-ErrorType imu_read_gyro_raw(IMUParams * imu, int16_t * w_x_lsb, int16_t * w_y_lsb, int16_t * w_z_lsb);
+ErrorType imu_read_gyro_raw(ImuParams * imu, int16_t * w_x_lsb, int16_t * w_y_lsb, int16_t * w_z_lsb);
 /* Turn off gyroscope */
-ErrorType gyro_powerdown(IMUParams * imu);
+ErrorType gyro_powerdown(ImuParams * imu);
 /* Turn off accelerometer */
-ErrorType accel_powerdown(IMUParams * imu);
+ErrorType accel_powerdown(ImuParams * imu);
 /* Turn on gyroscope */
-ErrorType gyro_powerup(IMUParams * imu);
+ErrorType gyro_powerup(ImuParams * imu);
 /* Turn on accelerometer */
-ErrorType accel_powerup(IMUParams * imu);
+ErrorType accel_powerup(ImuParams * imu);
 
 #endif

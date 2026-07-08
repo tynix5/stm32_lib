@@ -13,6 +13,10 @@ static ErrorType mag_set_filt(MagParams * mag);
 static ErrorType mag_set_it(MagParams * mag);
 /* Enable/Disable low-power mode */
 static ErrorType mag_set_power(MagParams * mag);
+/* Reset config and user registers */
+static ErrorType mag_soft_reset(MagParams * mag);
+/* Reboot memory content */
+static ErrorType mag_reboot(MagParams * mag);
 /***********************************************************/
 
 /******************* SPI Helper Functions ******************/
@@ -35,8 +39,10 @@ ErrorType mag_init(MagParams * mag)
     mag_deselect(mag);
     
     // wait for power up
-    mag->delay_ms(10);
-    
+    // flow is detailed in AN5080 application note Ch. 7
+    mag_soft_reset(mag);
+    mag_reboot(mag);
+
     uint8_t retries = 0;
     // wait until connection to magnetometer is present
     while (mag_read_reg(mag, MAG_REG_WHO_AM_I) != MAG_ID)
@@ -212,6 +218,30 @@ static ErrorType mag_set_power(MagParams * mag)
         cfg_reg_a &= ~MAG_BIT_LP;
     
     mag_write_reg(mag, MAG_REG_CFG_REG_A, cfg_reg_a);
+
+    return RET_OK;
+}
+
+static ErrorType mag_soft_reset(MagParams * mag)
+{
+    uint8_t cfg_reg_a = mag_read_reg(mag, MAG_REG_CFG_REG_A);
+    cfg_reg_a |= MAG_BIT_SOFT_RST;
+    mag_write_reg(mag, MAG_REG_CFG_REG_A, cfg_reg_a);
+
+    // wait for bit to automatically clear
+    while (mag_read_reg(mag, MAG_REG_CFG_REG_A) & MAG_BIT_SOFT_RST);
+
+    return RET_OK;
+}
+
+static ErrorType mag_reboot(MagParams * mag)
+{
+    uint8_t cfg_reg_a = mag_read_reg(mag, MAG_REG_CFG_REG_A);
+    cfg_reg_a |= MAG_BIT_REBOOT;
+    mag_write_reg(mag, MAG_REG_CFG_REG_A, cfg_reg_a);
+
+    // wait 20ms
+    mag->delay_ms(20);
 
     return RET_OK;
 }

@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include "error_types.h"
 
 #ifdef STM32L432xx
 #include "stm32l4xx_hal.h"
@@ -15,215 +16,237 @@
 #define RADIO_MODE_TX           1
 #define RADIO_MODE_RX           0
 
-#define HAL_TIMEOUT             1000
-
 #define MAX_RF_CONN             5
 
 #define MAX_PKT_SIZE            32
 
-#define DYNAMIC_PAYLOAD         1
-#define STATIC_PAYLOAD          0
-#define ENABLE_ACK              1
-#define DISABLE_ACK             0
-
 /************************* Commands *************************/
-#define R_REGISTER              0
-#define W_REGISTER              0b00100000
-#define R_RX_PAYLOAD            0b01100001
-#define W_TX_PAYLOAD            0b10100000
-#define FLUSH_TX                0b11100001
-#define FLUSH_RX                0b11100010
-#define REUSE_TX_PL             0b11100011
-#define ACTIVATE                0b01010000
-#define R_RX_PL_WID             0b01100000
-#define W_ACK_PAYLOAD           0b10101000
-#define W_TX_PAYLOAD_NOACK      0b10110000
-#define NOP                     0b11111111
+#define NRF_R_REGISTER              0
+#define NRF_W_REGISTER              0b00100000
+#define NRF_R_RX_PAYLOAD            0b01100001
+#define NRF_W_TX_PAYLOAD            0b10100000
+#define NRF_FLUSH_TX                0b11100001
+#define NRF_FLUSH_RX                0b11100010
+#define NRF_REUSE_TX_PL             0b11100011
+#define NRF_ACTIVATE                0b01010000
+#define NRF_R_RX_PL_WID             0b01100000
+#define NRF_W_ACK_PAYLOAD           0b10101000
+#define NRF_W_TX_PAYLOAD_NOACK      0b10110000
+#define NRF_NOP                     0b11111111
 /************************************************************/
 
 /********************* Register Address *********************/
-#define CONFIG                  0x00
-#define EN_AA                   0x01
-#define EN_RXADDR               0x02
-#define SETUP_AW                0x03
-#define SETUP_RETR              0x04
-#define RF_CH                   0x05
-#define RF_SETUP                0x06
-#define STATUS                  0x07
-#define OBSERVE_TX              0x08
-#define CD                      0x09
-#define RX_ADDR_P0              0x0a
-#define RX_ADDR_P1              0x0b
-#define RX_ADDR_P2              0x0c
-#define RX_ADDR_P3              0x0d
-#define RX_ADDR_P4              0x0e
-#define RX_ADDR_P5              0x0f
-#define TX_ADDR                 0x10
-#define RX_PW_P0                0x11
-#define RX_PW_P1                0x12
-#define RX_PW_P2                0x13
-#define RX_PW_P3                0x14
-#define RX_PW_P4                0x15
-#define RX_PW_P5                0x16
-#define FIFO_STATUS             0x17
-#define DYNPD                   0x1c
-#define FEATURE                 0x1d
+#define NRF_REG_CONFIG                  0x00
+#define NRF_REG_EN_AA                   0x01
+#define NRF_REG_EN_RXADDR               0x02
+#define NRF_REG_SETUP_AW                0x03
+#define NRF_REG_SETUP_RETR              0x04
+#define NRF_REG_RF_CH                   0x05
+#define NRF_REG_RF_SETUP                0x06
+#define NRF_REG_STATUS                  0x07
+#define NRF_REG_OBSERVE_TX              0x08
+#define NRF_REG_CD                      0x09
+#define NRF_REG_RX_ADDR_P0              0x0a
+#define NRF_REG_RX_ADDR_P1              0x0b
+#define NRF_REG_RX_ADDR_P2              0x0c
+#define NRF_REG_RX_ADDR_P3              0x0d
+#define NRF_REG_RX_ADDR_P4              0x0e
+#define NRF_REG_RX_ADDR_P5              0x0f
+#define NRF_REG_TX_ADDR                 0x10
+#define NRF_REG_RX_PW_P0                0x11
+#define NRF_REG_RX_PW_P1                0x12
+#define NRF_REG_RX_PW_P2                0x13
+#define NRF_REG_RX_PW_P3                0x14
+#define NRF_REG_RX_PW_P4                0x15
+#define NRF_REG_RX_PW_P5                0x16
+#define NRF_REG_FIFO_STATUS             0x17
+#define NRF_REG_DYNPD                   0x1c
+#define NRF_REG_FEATURE                 0x1d
 /************************************************************/
 
 /*********************** Bit Mapping ************************/
 // CONFIG
-#define MASK_RX_DR              (1 << 6)
-#define MASK_TX_DS              (1 << 5)
-#define MASK_MAX_RT             (1 << 4)
-#define EN_CRC                  (1 << 3)
-#define CRCO                    (1 << 2)
-#define PWR_UP                  (1 << 1)
-#define PRIM_RX                 (1 << 0)
+#define NRF_BIT_MASK_RX_DR              0x40
+#define NRF_BIT_MASK_TX_DS              0x20
+#define NRF_BIT_MASK_MAX_RT             0x10
+#define NRF_BIT_EN_CRC                  0x08
+#define NRF_BIT_CRCO                    0x04
+#define NRF_BIT_PWR_UP                  0x02
+#define NRF_BIT_PRIM_RX                 0x01
 
 // EN_AA
-#define ENAA_P5                 (1 << 5)
-#define ENAA_P4                 (1 << 4)
-#define ENAA_P3                 (1 << 3)
-#define ENAA_P2                 (1 << 2)
-#define ENAA_P1                 (1 << 1)
-#define ENAA_P0                 (1 << 0)
+#define NRF_BIT_ENAA_P5                 0x20
+#define NRF_BIT_ENAA_P4                 0x10
+#define NRF_BIT_ENAA_P3                 0x08
+#define NRF_BIT_ENAA_P2                 0x04
+#define NRF_BIT_ENAA_P1                 0x02
+#define NRF_BIT_ENAA_P0                 0x01
 
 // EN_RXADDR
-#define ERX_P5                  (1 << 5)
-#define ERX_P4                  (1 << 4)
-#define ERX_P3                  (1 << 3)
-#define ERX_P2                  (1 << 2)
-#define ERX_P1                  (1 << 1)
-#define ERX_P0                  (1 << 0)
+#define NRF_BIT_ERX_P5                  0x20
+#define NRF_BIT_ERX_P4                  0x10
+#define NRF_BIT_ERX_P3                  0x08
+#define NRF_BIT_ERX_P2                  0x04
+#define NRF_BIT_ERX_P1                  0x02
+#define NRF_BIT_ERX_P0                  0x01
 
 // SETUP_AW
-#define AW_3                    (1 << 0)
-#define AW_4                    (1 << 1)
-#define AW_5                    (1 << 0) | (1 << 1)
-
-// SETUP_RETR
-#define RETRY_DELAY_250         0
-#define RETRY_DELAY_500         1
-#define RETRY_DELAY_750         2
-#define RETRY_DELAY_1000        3
-#define RETRY_DELAY_1250        4
-#define RETRY_DELAY_1500        5
-#define RETRY_DELAY_1750        6
-#define RETRY_DELAY_2000        7
-#define RETRY_DELAY_2250        8
-#define RETRY_DELAY_2500        9
-#define RETRY_DELAY_2750        10
-#define RETRY_DELAY_3000        11
-#define RETRY_DELAY_3250        12
-#define RETRY_DELAY_3500        13
-#define RETRY_DELAY_3750        14
-#define RETRY_DELAY_4000        15
-#define RETRY_CNT_DISABLE       0
-#define RETRY_CNT_1             1
-#define RETRY_CNT_2             2
-#define RETRY_CNT_3             3
-#define RETRY_CNT_4             4
-#define RETRY_CNT_5             5
-#define RETRY_CNT_6             6
-#define RETRY_CNT_7             7
-#define RETRY_CNT_8             8
-#define RETRY_CNT_9             9
-#define RETRY_CNT_10            10
-#define RETRY_CNT_11            11
-#define RETRY_CNT_12            12
-#define RETRY_CNT_13            13
-#define RETRY_CNT_14            14
-#define RETRY_CNT_15            15
+#define NRF_BIT_AW_3                    0x01
+#define NRF_BIT_AW_4                    0x02
+#define NRF_BIT_AW_5                    0x01 | 0x02
 
 // RF_SETUP
-#define RF_DR_1MBPS             0
-#define RF_DR_2MBPS             (1 << 3)
-#define RF_PWR_18DBM            0
-#define RF_PWR_12DBM            (1 << 1)
-#define RF_PWR_6DBM             (1 << 2)
-#define RF_PWR_0DBM             (1 << 1) | (1 << 2)
+#define NRF_BIT_PLL_LOCK                0x10
+#define NRF_BIT_RF_DR                   0x08
+#define NRF_BIT_PWR_1                   0x04
+#define NRF_BIT_PWR_0                   0x02
+#define NRF_BIT_LNA_HCURR               0x01
+
+#define NRF_BIT_RF_DR_SHIFT             3
+#define NRF_BIT_RF_PWR_SHIFT            1
 
 // STATUS
-#define RX_DR                   (1 << 6)
-#define TX_DS                   (1 << 5)
-#define MAX_RT                  (1 << 4)
-#define RX_P_NO                 (1 << 1) | (1 << 2) | (1 << 3)
-#define TX_FULL                 (1 << 0)
+#define NRF_BIT_RX_DR                   0x40
+#define NRF_BIT_TX_DS                   0x20
+#define NRF_BIT_MAX_RT                  0x10
+#define NRF_BIT_RX_P_NO                 0x02 | 0x04 | 0x08
+#define NRF_BIT_TX_FULL                 0x01
 
 // DYNPD
-#define DPL_P5                  (1 << 5)
-#define DPL_P4                  (1 << 4)
-#define DPL_P3                  (1 << 3)
-#define DPL_P2                  (1 << 2)
-#define DPL_P1                  (1 << 1)
-#define DPL_P0                  (1 << 0)
+#define NRF_BIT_DPL_P5                  0x20
+#define NRF_BIT_DPL_P4                  0x10
+#define NRF_BIT_DPL_P3                  0x08
+#define NRF_BIT_DPL_P2                  0x04
+#define NRF_BIT_DPL_P1                  0x02
+#define NRF_BIT_DPL_P0                  0x01
 
 // FEATURE
-#define EN_DPL                  (1 << 2)
-#define EN_ACK_PAY              (1 << 1)
-#define EN_DYN_ACK              (1 << 0)
+#define NRF_BIT_EN_DPL                  0x04
+#define NRF_BIT_EN_ACK_PAY              0x02
+#define NRF_BIT_EN_DYN_ACK              0x01
 /************************************************************/
 
-/********************** Struct Defines **********************/
-// RadioIrqs
-#define INT_EN                  1
-#define INT_DIS                 0
-/************************************************************/
-
+// return types for RF situations
 typedef enum {
+
     RF_SUCCESS = 0,
     RF_INVALID_CONFIG,
     RF_INVALID_PACKET,
     RF_MAX_RETRIES,
-    RF_TIMEOUT,
+    RF_TIMEOUT
+
 } ErrorRF;
+
+// RF payload types
+typedef enum : uint8_t {
+
+    NRF_PAYLOAD_DYNAMIC = 0,
+    NRF_PAYLOAD_STATIC
+
+} NrfPayloadType;
+
+// RF air data rates
+typedef enum : uint8_t {
+
+    NRF_DATARATE_1MBPS = 0,
+    NRF_DATARATE_2MBPS
+
+} NrfDataRate;
+
+// RF output power in TX mode
+typedef enum : uint8_t {
+
+    NRF_TX_PWR_M18DBM = 0,
+    NRF_TX_PWR_M12DBM,
+    NRF_TX_PWR_M6DBM,
+    NRF_TX_PWR_0DBM
+
+} NrfPower;
+
+typedef enum : uint8_t {
+
+    NRF_RETRY_CNT_DISABLE = 0,
+    NRF_RETRY_CNT_1,
+    NRF_RETRY_CNT_2,
+    NRF_RETRY_CNT_3,
+    NRF_RETRY_CNT_4,
+    NRF_RETRY_CNT_5,
+    NRF_RETRY_CNT_6,
+    NRF_RETRY_CNT_7,
+    NRF_RETRY_CNT_8,
+    NRF_RETRY_CNT_9,
+    NRF_RETRY_CNT_10,
+    NRF_RETRY_CNT_11,
+    NRF_RETRY_CNT_12,
+    NRF_RETRY_CNT_13,
+    NRF_RETRY_CNT_14,
+    NRF_RETRY_CNT_15
+
+} NrfRetryCnt;
+
+// retry delay between failed sends
+typedef enum : uint8_t {
+
+    NRF_RETRY_DELAY_250 = 0,
+    NRF_RETRY_DELAY_500,         
+    NRF_RETRY_DELAY_750,         
+    NRF_RETRY_DELAY_1000,        
+    NRF_RETRY_DELAY_1250,        
+    NRF_RETRY_DELAY_1500,        
+    NRF_RETRY_DELAY_1750,        
+    NRF_RETRY_DELAY_2000,        
+    NRF_RETRY_DELAY_2250,        
+    NRF_RETRY_DELAY_2500,        
+    NRF_RETRY_DELAY_2750,        
+    NRF_RETRY_DELAY_3000,        
+    NRF_RETRY_DELAY_3250,        
+    NRF_RETRY_DELAY_3500,        
+    NRF_RETRY_DELAY_3750,        
+    NRF_RETRY_DELAY_4000
+
+} NrfRetryDelay;
 
 typedef struct {
 
-    SPI_HandleTypeDef * hspi;
+    SPI_HandleTypeDef * hspi;           // SPI handle
 
-    void (*delay_us)(uint32_t);
-    void (*delay_ms)(uint32_t);
+    void (*delay_us)(uint32_t);         // pointer to delay function
+    void (*delay_ms)(uint32_t);         // pointer to delay function
 
-    /************** Pin Definitions ***********/
-    GPIO_TypeDef * ce_gpio;
-    GPIO_TypeDef * cs_gpio;
-    uint16_t ce_pin;
-    uint16_t cs_pin;
-    /******************************************/
+    GPIO_TypeDef * ce_gpio;             // chip enable GPIO
+    GPIO_TypeDef * cs_gpio;             // chip select GPIO
+    uint16_t ce_pin;                    // chip enable pin
+    uint16_t cs_pin;                    // chip select pin
 
-    uint8_t payload_type;
-    uint8_t ack;
+    NrfPayloadType payload_type;        // dynamic/static payloads
+    EnableType ack;                     // enable/disable acks
 
     uint8_t payload_length;             // only applies to STATIC_PAYLOAD
     
-    uint8_t freq_ch;
-    uint8_t data_rate;
-    uint8_t power_level;
+    uint8_t freq_ch;                    // frequency channel
+    NrfDataRate data_rate;              // data rate
+    NrfPower power_level;               // transmitting power level
 
-    uint64_t this_addr;
-    uint64_t node_addr;
+    uint64_t this_addr;                 // address of this node
+    uint64_t node_addr;                 // address of receiving node
+
+    struct {
+        EnableType rx_dr;               // RX data received
+        EnableType tx_ds;               // TX data sent
+        EnableType max_rt;              // Max retries
+    } RadioIrqs;
 
 } RadioParams;
-
-typedef struct {
-
-    uint8_t rx_dr;      // RX data received
-    uint8_t tx_ds;      // TX data sent
-    uint8_t max_rt;     // Max retries
-
-} RadioIrqs;
 
 void rf_init(RadioParams * radio);
 ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen);
 ErrorRF rf_listen(RadioParams * radio, uint32_t timeout);
 ErrorRF rf_listen_it(RadioParams * radio);
 ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_t * ack, uint8_t alen);
-void rf_set_retransmit(RadioParams * radio, uint8_t delay, uint8_t count);
+void rf_set_retransmit(RadioParams * radio, NrfRetryDelay delay, NrfRetryCnt count);
 void rf_set_channel(RadioParams * radio, uint8_t ch);
-void rf_set_data_rate(RadioParams * radio, uint8_t rate);
-void rf_set_power_level(RadioParams * radio, uint8_t power);
-void rf_set_irq(RadioParams * radio, RadioIrqs * irqs);
+void rf_set_data_rate(RadioParams * radio, NrfDataRate rate);
+void rf_set_power_level(RadioParams * radio, NrfPower power);
 void rf_flush_rx(RadioParams * radio);
 void rf_flush_tx(RadioParams * radio);
 uint8_t rf_read_status(RadioParams * radio);

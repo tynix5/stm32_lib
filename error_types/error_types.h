@@ -4,17 +4,24 @@
 /************ Generic Global Defines *************/
 #define SPI_TIMEOUT_MS                  5
 #define SPI_MAX_RETRIES                 5
-
-#define ENABLE                          1
-#define DISABLE                         0
+/*************************************************/
 
 /************** Generic Error Types **************/
 typedef enum {
-
-    // SUCCESS = 0,         // TYPE_OK?
-    TIMEOUT = 1,
-    INVALID_CFG
-
+    
+    RET_OK = 0,                         // success
+    RET_TIMEOUT,                        // timed out
+    RET_INVALID_CFG,                    // bad configuration
+    RET_DISCREPANCY                     // written value != read value
+    
 } ErrorType;
+
+typedef enum {
+    
+    FEAT_DISABLE = 0,
+    FEAT_ENABLE
+    
+} EnableType;
+/*************************************************/
 
 #endif

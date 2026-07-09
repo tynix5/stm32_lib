@@ -4,7 +4,11 @@
 #include "stm32f4xx_hal.h"
 #include "lsm6ds3tr.h"
 
-/*********************** Helper Functions *********************/
+/**************************************** Helper Functions *******************************************/
+/* Software reset */
+static ErrorType imu_sw_reset(ImuParams * imu);
+/* Reboot memory content */
+static ErrorType imu_reboot(ImuParams * imu);
 /* Configure interrupts for accelerometer and gyroscope */
 static ErrorType imu_set_it(ImuParams * imu);                   // needs implementation
 /* Initialize internal gyroscope in IMU */
@@ -21,9 +25,10 @@ static ErrorType accel_set_odr(ImuParams * imu);
 static ErrorType gyro_set_fs(ImuParams * imu);
 /* Set full-scale range for accelerometer */
 static ErrorType accel_set_fs(ImuParams * imu);
-/**************************************************************/
+/*****************************************************************************************************/
 
-/********************** SPI Wrapper Functions *****************/
+
+/************************************* SPI Wrapper Functions *****************************************/
 /* CS low */
 static inline void imu_select(ImuParams * imu);
 /* CS high */
@@ -36,14 +41,14 @@ static uint8_t imu_read_reg(ImuParams * imu, uint8_t addr);
 static void imu_read(ImuParams * imu, uint8_t start_addr, uint8_t len, uint8_t * data);
 /* Read status register */
 static uint8_t imu_status(ImuParams * imu);
-/**************************************************************/
+/*****************************************************************************************************/
 
 ErrorType imu_init(ImuParams * imu)
 {
     imu_deselect(imu);
 
-    // wait for power up
-    imu->delay_ms(10);
+    // clear configurations
+    imu_sw_reset(imu);   
 
     uint8_t retries = 0;
     // wait until communicaiton is successful
@@ -56,16 +61,21 @@ ErrorType imu_init(ImuParams * imu)
         imu->delay_ms(10);
     }
 
-    imu_set_fifo_mode(imu);
+    if (imu_set_fifo_mode(imu) != RET_OK)
+        return RET_INVALID_CFG;
 
-    gyro_init(imu);
-    accel_init(imu);
+    if (gyro_init(imu) != RET_OK)
+        return RET_INVALID_CFG;
+
+    if (accel_init(imu) != RET_OK)
+        return RET_INVALID_CFG;
 
     // configure control register 3
     // normal mode, block update, interrupts active high, push-pull interrupts, 4-wire SPI, register addr auto inc, little endian
     imu_write_reg(imu, IMU_REG_CTRL3_C, IMU_BIT_IF_INC | IMU_BIT_BDU);
 
-    imu_set_it(imu);
+    if (imu_set_it(imu) != RET_OK)
+        return RET_INVALID_CFG;
 
     return RET_OK;
 }
@@ -280,7 +290,51 @@ ErrorType accel_powerup(ImuParams * imu)
     return accel_set_odr(imu);
 }
 
-/*************************** Helper Functions **************************/
+/**************************************** Helper Functions *******************************************/
+static ErrorType imu_sw_reset(ImuParams * imu)
+{
+    // AN5130 section 5.7
+    // 1. Power down gyroscope
+    gyro_powerdown(imu);
+
+    // 2. Set accelerometer in High Performance mode
+    uint8_t ctrl6_c = imu_read_reg(imu, IMU_REG_CTRL6_C);
+    ctrl6_c &= ~IMU_BIT_XL_HM_MODE;
+    imu_write_reg(imu, IMU_REG_CTRL6_C, ctrl6_c);
+
+    // 3. Set SW_RESET bit
+    uint8_t ctrl3_c = imu_read_reg(imu, IMU_REG_CTRL3_C);
+    ctrl3_c |= IMU_BIT_SW_RESET;
+    imu_write_reg(imu, IMU_REG_CTRL3_C, ctrl3_c);
+
+    // 4. wait for software reset bit to clear
+    while (imu_read_reg(imu, IMU_REG_CTRL3_C) & IMU_BIT_SW_RESET);
+
+    return RET_OK;
+}
+
+static ErrorType imu_reboot(ImuParams * imu)
+{
+    // AN5130 section 5.7
+    // 1. Power down gyroscope
+    gyro_powerdown(imu);
+
+    // 2. Set accelerometer in High Performance mode
+    uint8_t ctrl6_c = imu_read_reg(imu, IMU_REG_CTRL6_C);
+    ctrl6_c &= ~IMU_BIT_XL_HM_MODE;
+    imu_write_reg(imu, IMU_REG_CTRL6_C, ctrl6_c);
+
+    // 3. Set boot bit
+    uint8_t ctrl3_c = imu_read_reg(imu, IMU_REG_CTRL3_C);
+    ctrl3_c |= IMU_BIT_BOOT;
+    imu_write_reg(imu, IMU_REG_CTRL3_C, ctrl3_c);
+
+    // 4. Wait 15ms
+    imu->delay_ms(15);
+
+    return RET_OK;
+}
+
 static ErrorType imu_set_it(ImuParams * imu)
 {
     imu_write_reg(imu, IMU_REG_INT1_CTRL, imu->IntParams.int1);     // INT1
@@ -301,6 +355,10 @@ static ErrorType gyro_init(ImuParams * imu)
     uint8_t ctrl4_c = imu_read_reg(imu, IMU_REG_CTRL4_C);
     uint8_t ctrl6_c = imu_read_reg(imu, IMU_REG_CTRL6_C);
     uint8_t ctrl7_g = imu_read_reg(imu, IMU_REG_CTRL7_G);
+
+    // if using filter, high performance mode must be enabled
+    if (imu->GyroParams.filt != IMU_NO_FILTER)
+        ctrl7_g &= ~IMU_BIT_G_HM_MODE;
 
     // configure LPF and HPF
     if (imu->GyroParams.filt == IMU_BPF_EN || imu->GyroParams.filt == IMU_LPF_EN)
@@ -350,10 +408,13 @@ static ErrorType accel_init(ImuParams * imu)
     
     // bandpass filter mode not allowed
     if (imu->AccelParams.filt == IMU_BPF_EN)
-    {
         return RET_INVALID_CFG;
-    }
-    else if (imu->AccelParams.filt == IMU_LPF_EN)
+    
+    // if any filters are enabled, high performance mode must be on
+    if (imu->AccelParams.filt != IMU_NO_FILTER)
+        ctrl6_c &= ~IMU_BIT_XL_HM_MODE;
+
+    if (imu->AccelParams.filt == IMU_LPF_EN)
     {
         ctrl8_xl &= ~IMU_BIT_HP_SLOPE_XL_EN;            // disable highpass filter
         ctrl8_xl |= IMU_BIT_LPF2_XL_EN;                 // enable lowpass filter
@@ -406,16 +467,25 @@ static ErrorType imu_set_fifo_mode(ImuParams * imu)
 static ErrorType gyro_set_odr(ImuParams * imu)
 {
     ImuGyroOdr odr = imu->GyroParams.odr;
-
+    ImuFilterMode filt = imu->GyroParams.filt;
 
     uint8_t ctrl7_g = imu_read_reg(imu, IMU_REG_CTRL7_G);
 
-    if (odr >= IMU_ODR_G_12_5HZ && odr <= IMU_ODR_G_208HZ)
-        ctrl7_g |= IMU_BIT_G_HM_MODE;                       // disable high performance mode
-    else if (odr >= IMU_ODR_G_416HZ && odr <= IMU_ODR_G_6_66KHZ)
-        ctrl7_g &= ~IMU_BIT_G_HM_MODE;                      // high performance mode
-    else 
+    if (odr > IMU_ODR_G_6_66KHZ)
         return RET_INVALID_CFG;
+
+    // if filter is selected, must be high performance mode
+    if (filt != IMU_NO_FILTER)
+    {
+        ctrl7_g &= ~IMU_BIT_G_HM_MODE;                      // high performance mode
+    }
+    else
+    {
+        if (odr >= IMU_ODR_G_12_5HZ && odr <= IMU_ODR_G_208HZ)
+            ctrl7_g |= IMU_BIT_G_HM_MODE;                       // disable high performance mode
+        else
+            ctrl7_g &= ~IMU_BIT_G_HM_MODE;                      // high performance mode
+    }
 
     imu_write_reg(imu, IMU_REG_CTRL7_G, ctrl7_g);
 
@@ -430,19 +500,27 @@ static ErrorType gyro_set_odr(ImuParams * imu)
 static ErrorType accel_set_odr(ImuParams * imu)
 {
     ImuAccelOdr odr = imu->AccelParams.odr;
-
+    ImuFilterMode filt = imu->GyroParams.filt;
 
     uint8_t ctrl6_c = imu_read_reg(imu, IMU_REG_CTRL6_C);
 
-    if ((odr >= IMU_ODR_XL_12_5HZ && odr <= IMU_ODR_XL_208HZ) || odr == IMU_ODR_XL_1_6HZ)
-        ctrl6_c |= IMU_BIT_XL_HM_MODE;                      // disable high peformance mode
-    else if (odr >= IMU_ODR_XL_416HZ && odr <= IMU_ODR_XL_6_66KHZ)
-        ctrl6_c &= ~IMU_BIT_XL_HM_MODE;                     // high performance mode
-    else 
+    if (odr >= IMU_ODR_XL_1_6HZ)
         return RET_INVALID_CFG;
 
-    imu_write_reg(imu, IMU_REG_CTRL6_C, ctrl6_c);
+    // if filter is selected, must be high performance mode
+    if (filt != IMU_NO_FILTER)
+    {
+        ctrl6_c &= ~IMU_BIT_XL_HM_MODE;                     // high performance mode
+    }
+    else 
+    {
+        if ((odr >= IMU_ODR_XL_12_5HZ && odr <= IMU_ODR_XL_208HZ) || odr == IMU_ODR_XL_1_6HZ)
+            ctrl6_c |= IMU_BIT_XL_HM_MODE;                      // disable high peformance mode
+        else
+            ctrl6_c &= ~IMU_BIT_XL_HM_MODE;                     // high performance mode
+    }
 
+    imu_write_reg(imu, IMU_REG_CTRL6_C, ctrl6_c);
 
     // only modify ODR bits
     uint8_t ctrl1_xl = imu_read_reg(imu, IMU_REG_CTRL1_XL);
@@ -456,7 +534,7 @@ static ErrorType gyro_set_fs(ImuParams * imu)
 {
     ImuGyroFs fs = imu->GyroParams.fs;
 
-    if (fs >= IMU_FS_G_2000DPS)
+    if (fs > IMU_FS_G_2000DPS)
         return RET_INVALID_CFG;
     
     uint8_t ctrl2_g = imu_read_reg(imu, IMU_REG_CTRL2_G);
@@ -470,7 +548,7 @@ static ErrorType accel_set_fs(ImuParams * imu)
 {
     ImuAccelFs fs = imu->AccelParams.fs;
 
-    if (fs >= IMU_FS_XL_8G)
+    if (fs > IMU_FS_XL_8G)
         return RET_INVALID_CFG;
 
     uint8_t ctrl1_xl = imu_read_reg(imu, IMU_REG_CTRL1_XL);
@@ -479,10 +557,10 @@ static ErrorType accel_set_fs(ImuParams * imu)
 
     return RET_OK;
 }
-/***********************************************************************/
+/*****************************************************************************************************/
 
 
-/************************* SPI Wrapper Functions ***********************/
+/************************************* SPI Wrapper Functions *****************************************/
 static inline void imu_select(ImuParams * imu)
 {
     HAL_GPIO_WritePin(imu->cs_gpio, imu->cs, GPIO_PIN_RESET);
@@ -531,4 +609,4 @@ static uint8_t imu_status(ImuParams * imu)
 {
     return imu_read_reg(imu, IMU_REG_STATUS);
 }
-/***********************************************************************/
+/*****************************************************************************************************/

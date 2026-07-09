@@ -49,6 +49,7 @@ ErrorType imu_init(ImuParams * imu)
 
     // clear configurations
     imu_sw_reset(imu);   
+    imu_reboot(imu);
 
     uint8_t retries = 0;
     // wait until communicaiton is successful

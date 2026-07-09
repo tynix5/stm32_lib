@@ -43,6 +43,7 @@ ErrorType mag_init(MagParams * mag)
     // wait for power up
     // flow is detailed in AN5080 application note Ch. 7
     mag_soft_reset(mag);
+    mag_reboot(mag);
 
     uint8_t retries = 0;
     // wait until connection to magnetometer is present

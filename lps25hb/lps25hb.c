@@ -36,6 +36,7 @@ ErrorType bar_init(BarParams * bar)
     bar_deselect(bar);
 
     bar_sw_reset(bar);
+    bar_reboot(bar);
     bar_powerup(bar);
 
     uint8_t retries = 0;

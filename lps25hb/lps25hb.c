@@ -4,6 +4,8 @@
 /**************************************** Helper Functions *******************************************/
 /* Software reset to power-on configuration */
 static ErrorType bar_sw_reset(BarParams * bar);
+/* Reboot memory content */
+static ErrorType bar_reboot(BarParams * bar);
 /* Configure output data rate for barometer */
 static ErrorType bar_set_odr(BarParams * bar);
 /* Configure FIFO modes */
@@ -180,6 +182,18 @@ static ErrorType bar_sw_reset(BarParams * bar)
 
     // wait for software reset bit to clear
     while (bar_read_reg(bar, BAR_REG_CTRL_REG2) & BAR_BIT_SWRESET);
+
+    return RET_OK;
+}
+
+static ErrorType bar_reboot(BarParams * bar)
+{
+    uint8_t ctrl_reg2 = bar_read_reg(bar, BAR_REG_CTRL_REG2);
+    ctrl_reg2 |= BAR_BIT_BOOT;
+    bar_write_reg(bar, BAR_REG_CTRL_REG2, ctrl_reg2);
+
+    // boot process takes 2.2ms
+    bar->delay_ms(5);
 
     return RET_OK;
 }

@@ -4,7 +4,7 @@
 #include "stm32f4xx_hal.h"
 #include "error_types.h"
 
-/********************** Helper Functions *******************/
+/**************************************** Helper Functions *******************************************/
 /* Configure output data rate */
 static ErrorType mag_set_odr(MagParams * mag);
 /* Configure low pass filter */
@@ -17,9 +17,10 @@ static ErrorType mag_set_power(MagParams * mag);
 static ErrorType mag_soft_reset(MagParams * mag);
 /* Reboot memory content */
 static ErrorType mag_reboot(MagParams * mag);
-/***********************************************************/
+/*****************************************************************************************************/
 
-/******************* SPI Helper Functions ******************/
+
+/************************************** SPI Helper Functions *****************************************/
 /* CS low */
 static inline void mag_select(MagParams * mag);
 /* CS high */
@@ -32,7 +33,8 @@ static uint8_t mag_read_reg(MagParams * mag, uint8_t addr);
 static void mag_read(MagParams * mag, uint8_t start_addr, uint8_t len, uint8_t * data);
 /* Return status register */
 static uint8_t mag_status(MagParams * mag);
-/***********************************************************/
+/*****************************************************************************************************/
+
 
 ErrorType mag_init(MagParams * mag)
 {
@@ -41,7 +43,6 @@ ErrorType mag_init(MagParams * mag)
     // wait for power up
     // flow is detailed in AN5080 application note Ch. 7
     mag_soft_reset(mag);
-    mag_reboot(mag);
 
     uint8_t retries = 0;
     // wait until connection to magnetometer is present
@@ -133,7 +134,7 @@ ErrorType mag_read_temp(MagParams * mag, float * temp_c)
     return RET_OK;
 }
 
-/********************** Helper Functions *******************/
+/**************************************** Helper Functions *******************************************/
 static ErrorType mag_set_odr(MagParams * mag)
 {
     MagOdr odr = mag->odr;
@@ -245,9 +246,9 @@ static ErrorType mag_reboot(MagParams * mag)
 
     return RET_OK;
 }
-/***********************************************************/
+/*****************************************************************************************************/
 
-/******************* SPI Helper Functions ******************/
+/************************************** SPI Helper Functions *****************************************/
 static inline void mag_select(MagParams * mag)
 {
     HAL_GPIO_WritePin(mag->cs_gpio, mag->cs, GPIO_PIN_RESET);
@@ -294,4 +295,4 @@ static uint8_t mag_status(MagParams * mag)
 {
     return mag_read_reg(mag, MAG_REG_STATUS_REG);
 }
-/***********************************************************/
+/*****************************************************************************************************/

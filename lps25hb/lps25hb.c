@@ -1,16 +1,19 @@
 #include <stdint.h>
 #include "lps25hb.h"
 
-/*********************** Helper Functions *********************/
+/**************************************** Helper Functions *******************************************/
+/* Software reset to power-on configuration */
+static ErrorType bar_sw_reset(BarParams * bar);
 /* Configure output data rate for barometer */
 static ErrorType bar_set_odr(BarParams * bar);
 /* Configure FIFO modes */
 static ErrorType bar_set_fifo_mode(BarParams * bar);
 /* Configure interrupt events */
 static ErrorType bar_set_it(BarParams * bar);
-/**************************************************************/
+/*****************************************************************************************************/
 
-/********************** SPI Wrapper Functions *****************/
+
+/************************************* SPI Wrapper Functions *****************************************/
 /* CS low */
 static inline void bar_select(BarParams * bar);
 /* CS high */
@@ -23,15 +26,15 @@ static uint8_t bar_read_reg(BarParams * bar, uint8_t addr);
 static void bar_read(BarParams * bar, uint8_t start_addr, uint8_t len, uint8_t * data);
 /* Read status register */
 static uint8_t bar_status(BarParams * bar);
-/**************************************************************/
+/*****************************************************************************************************/
+
 
 ErrorType bar_init(BarParams * bar)
 {
     bar_deselect(bar);
-    bar_powerup(bar);
 
-    // wait for power up
-    bar->delay_ms(10);
+    bar_sw_reset(bar);
+    bar_powerup(bar);
 
     uint8_t retries = 0;
     // wait until communication is successful
@@ -168,7 +171,19 @@ ErrorType bar_powerup(BarParams * bar)
     return RET_OK;
 }
 
-/*********************** Helper Functions *********************/
+/**************************************** Helper Functions *******************************************/
+static ErrorType bar_sw_reset(BarParams * bar)
+{
+    uint8_t ctrl_reg2 = bar_read_reg(bar, BAR_REG_CTRL_REG2);
+    ctrl_reg2 |= BAR_BIT_SWRESET;
+    bar_write_reg(bar, BAR_REG_CTRL_REG2, ctrl_reg2);
+
+    // wait for software reset bit to clear
+    while (bar_read_reg(bar, BAR_REG_CTRL_REG2) & BAR_BIT_SWRESET);
+
+    return RET_OK;
+}
+
 static ErrorType bar_set_odr(BarParams * bar)
 {
     BarOdr odr = bar->odr;
@@ -229,13 +244,14 @@ static ErrorType bar_set_it(BarParams * bar)
         return RET_INVALID_CFG;
     
     bar_write_reg(bar, BAR_REG_CTRL_REG4, it);      // select interrupt type
-    bar_write_reg(bar, BAR_REG_CTRL_REG3, 0);       // data signal to INT_DRDY pin
+    bar_write_reg(bar, BAR_REG_CTRL_REG3, 0);       // data signal to INT_DRDY pin, active high interrupt, push/pull output
 
     return RET_OK;
 }
-/**************************************************************/
+/*****************************************************************************************************/
 
-/********************** SPI Wrapper Functions *****************/
+
+/************************************* SPI Wrapper Functions *****************************************/
 static inline void bar_select(BarParams * bar)
 {
     HAL_GPIO_WritePin(bar->cs_gpio, bar->cs, GPIO_PIN_RESET);
@@ -286,4 +302,5 @@ static uint8_t bar_status(BarParams * bar)
 {
     return bar_read_reg(bar, BAR_REG_STATUS);
 }
-/**************************************************************/
+/*****************************************************************************************************/
+

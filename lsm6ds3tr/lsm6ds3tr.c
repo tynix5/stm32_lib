@@ -4,56 +4,113 @@
 #include "stm32f4xx_hal.h"
 #include "lsm6ds3tr.h"
 
-/*********************** Helper Functions *********************/
-static void gyro_init(IMUParams * imu);
-static void accel_init(IMUParams * imu);
-/**************************************************************/
+/**************************************** Helper Functions *******************************************/
+/* Software reset */
+static ErrorType imu_sw_reset(ImuParams * imu);
+/* Reboot memory content */
+static ErrorType imu_reboot(ImuParams * imu);
+/* Configure interrupts for accelerometer and gyroscope */
+static ErrorType imu_set_it(ImuParams * imu);                   // needs implementation
+/* Initialize internal gyroscope in IMU */
+static ErrorType gyro_init(ImuParams * imu);
+/* Initialize internal accelerometer in IMU */
+static ErrorType accel_init(ImuParams * imu);
+/* Configure internal FIFOs */
+static ErrorType imu_set_fifo_mode(ImuParams * imu);            // needs further implementation to support different modes
+/* Set ODR for gyroscope */
+static ErrorType gyro_set_odr(ImuParams * imu);
+/* Set ODR for accelerometer */
+static ErrorType accel_set_odr(ImuParams * imu);
+/* Set full-scale range for gyroscope */
+static ErrorType gyro_set_fs(ImuParams * imu);
+/* Set full-scale range for accelerometer */
+static ErrorType accel_set_fs(ImuParams * imu);
+/*****************************************************************************************************/
 
-/********************** SPI Wrapper Functions *****************/
-static inline void imu_select(IMUParams * imu);
-static inline void imu_deselect(IMUParams * imu);
-static void imu_write_reg(IMUParams * imu, uint8_t addr, uint8_t data);
-static uint8_t imu_read_reg(IMUParams * imu, uint8_t addr);
-static void imu_read(IMUParams * imu, uint8_t start_addr, uint8_t len, uint8_t * data);
-static uint8_t imu_status(IMUParams * imu);
-/**************************************************************/
 
-void imu_init(IMUParams * imu)
+/************************************* SPI Wrapper Functions *****************************************/
+/* CS low */
+static inline void imu_select(ImuParams * imu);
+/* CS high */
+static inline void imu_deselect(ImuParams * imu);
+/* Write byte to selected register over SPI */
+static void imu_write_reg(ImuParams * imu, uint8_t addr, uint8_t data);
+/* Read byte from selected register over SPI */
+static uint8_t imu_read_reg(ImuParams * imu, uint8_t addr);
+/* Multi-byte read starting at start_addr with a length of len bytes over SPI */
+static void imu_read(ImuParams * imu, uint8_t start_addr, uint8_t len, uint8_t * data);
+/* Read status register */
+static uint8_t imu_status(ImuParams * imu);
+/*****************************************************************************************************/
+
+ErrorType imu_init(ImuParams * imu)
 {
     imu_deselect(imu);
 
-    while (imu_read_reg(imu, IMU_WHO_AM_I) != IMU_ID);  // ensure communication
+    // clear configurations
+    imu_sw_reset(imu);   
+    imu_reboot(imu);
 
-    // configure FIFOs
-    /*
-    imu_write_reg(imu, FIFO_CTRL1, 10);             // 10 words max
-    imu_write_reg(imu, FIFO_CTRL2, 0);              // disable pedometer
-    imu_write_reg(imu, FIFO_CTRL3, 0b00001001);     // no decimation for gyroscope or accelerometer
-    imu_write_reg(imu, FIFO_CTRL4, 0b10000000);     // enable FIFO threshold use
-    imu_write_reg(imu, FIFO_CTRL5, 0b00001110);     // FIFO ODR is 12.5Hz and if FIFO is full, overwrite old data
-    */
-    imu_write_reg(imu, IMU_FIFO_CTRL5, 0b00000000);     // bypass mode --> FIFO disabled
+    uint8_t retries = 0;
+    // wait until communicaiton is successful
+    while (imu_read_reg(imu, IMU_REG_WHO_AM_I) != IMU_ID)
+    {
+        if (retries == SPI_MAX_RETRIES)
+            return RET_TIMEOUT;
 
-    gyro_init(imu);
-    accel_init(imu);
+        retries++;
+        imu->delay_ms(10);
+    }
+
+    if (imu_set_fifo_mode(imu) != RET_OK)
+        return RET_INVALID_CFG;
+
+    if (gyro_init(imu) != RET_OK)
+        return RET_INVALID_CFG;
+
+    if (accel_init(imu) != RET_OK)
+        return RET_INVALID_CFG;
 
     // configure control register 3
-    // normal mode, continuous update, interrupts active high, push-pull interrupts, 4-wire SPI, register addr auto inc, little endian
-    imu_write_reg(imu, IMU_CTRL3_C, IMU_IF_INC);
+    // normal mode, block update, interrupts active high, push-pull interrupts, 4-wire SPI, register addr auto inc, little endian
+    imu_write_reg(imu, IMU_REG_CTRL3_C, IMU_BIT_IF_INC | IMU_BIT_BDU);
 
-    // INT1 pin
-    imu_write_reg(imu, IMU_INT1_CTRL, IMU_INT1_DRDY_G);      // interrupt on gyro data ready
-    // INT2 pin
-    imu_write_reg(imu, IMU_INT2_CTRL, IMU_INT2_DRDY_XL);     // interrupt on accel data ready
+    if (imu_set_it(imu) != RET_OK)
+        return RET_INVALID_CFG;
 
-    /************ Apply High pass filter on Gyroscope to negate drift ************/
-    /********** Apply Low pass filter on accelerometer to eliminate noise ********/
+    return RET_OK;
 }
 
-void imu_read_accel(IMUParams * imu, float * a_x, float * a_y, float * a_z)
+ErrorType imu_is_accel_data_ready(ImuParams * imu, uint32_t timeout_ms)
+{
+    uint32_t start_tick = HAL_GetTick();
+
+    while (!(imu_status(imu) & IMU_BIT_STATUS_XLDA))
+    {
+        if (HAL_GetTick() - start_tick > timeout_ms)
+            return RET_TIMEOUT;
+    }
+
+    return RET_OK;
+}
+
+ErrorType imu_is_gyro_data_ready(ImuParams * imu, uint32_t timeout_ms)
+{
+    uint32_t start_tick = HAL_GetTick();
+
+    while (!(imu_status(imu) & IMU_BIT_STATUS_GDA))
+    {
+        if (HAL_GetTick() - start_tick > timeout_ms)
+            return RET_TIMEOUT;
+    }
+
+    return RET_OK;
+}
+
+ErrorType imu_read_accel_mps2(ImuParams * imu, float * a_x, float * a_y, float * a_z)
 {
     uint8_t a[6];
-    imu_read(imu, IMU_OUTX_L_XL, 6, a);
+    imu_read(imu, IMU_REG_OUTX_L_XL, 6, a);
 
     int16_t x_raw, y_raw, z_raw;
 
@@ -66,15 +123,15 @@ void imu_read_accel(IMUParams * imu, float * a_x, float * a_y, float * a_z)
     uint8_t scale_g;
 
     // determine full scale range (in g's)
-    if (imu->xl.fs == IMU_FS_XL_16G)
+    if (imu->AccelParams.fs == IMU_FS_XL_16G)
     {
         scale_g = 16;
     }
-    else if (imu->xl.fs == IMU_FS_XL_8G)
+    else if (imu->AccelParams.fs == IMU_FS_XL_8G)
     {
         scale_g = 8;
     }
-    else if (imu->xl.fs == IMU_FS_XL_4G)
+    else if (imu->AccelParams.fs == IMU_FS_XL_4G)
     {
         scale_g = 4;
     }
@@ -90,23 +147,27 @@ void imu_read_accel(IMUParams * imu, float * a_x, float * a_y, float * a_z)
     *a_x = (float) x_raw * lsb_to_g * IMU_GRAVITY;
     *a_y = (float) y_raw * lsb_to_g * IMU_GRAVITY;
     *a_z = (float) z_raw * lsb_to_g * IMU_GRAVITY;
+
+    return RET_OK;
 }
 
-void imu_read_accel_raw(IMUParams * imu, int16_t * a_x_lsb, int16_t * a_y_lsb, int16_t * a_z_lsb)
+ErrorType imu_read_accel_raw(ImuParams * imu, int16_t * a_x_lsb, int16_t * a_y_lsb, int16_t * a_z_lsb)
 {
     uint8_t a[6];
-    imu_read(imu, IMU_OUTX_L_XL, 6, a);
+    imu_read(imu, IMU_REG_OUTX_L_XL, 6, a);
 
     // convert low and high bytes into single value
     *a_x_lsb = a[0] | (a[1] << 8);          // OUT_L_XL | OUT_H_XL << 8
     *a_y_lsb = a[2] | (a[3] << 8);
     *a_z_lsb = a[4] | (a[5] << 8);
+
+    return RET_OK;
 }
 
-void imu_read_gyro(IMUParams * imu, float * w_x, float * w_y, float * w_z)
+ErrorType imu_read_gyro_radps(ImuParams * imu, float * w_x, float * w_y, float * w_z)
 {
     uint8_t w[6];
-    imu_read(imu, IMU_OUTX_L_G, 6, w);
+    imu_read(imu, IMU_REG_OUTX_L_G, 6, w);
 
     int16_t x_raw, y_raw, z_raw;
 
@@ -118,15 +179,15 @@ void imu_read_gyro(IMUParams * imu, float * w_x, float * w_y, float * w_z)
     // convert LSBs to radians per second
     uint16_t scale_dps;
 
-    if (imu->gyro.fs == IMU_FS_G_2000DPS)
+    if (imu->GyroParams.fs == IMU_FS_G_2000DPS)
     {
         scale_dps = 2000;
     }
-    else if (imu->gyro.fs == IMU_FS_G_1000DPS)
+    else if (imu->GyroParams.fs == IMU_FS_G_1000DPS)
     {
         scale_dps = 1000;
     }
-    else if (imu->gyro.fs == IMU_FS_G_500DPS)
+    else if (imu->GyroParams.fs == IMU_FS_G_500DPS)
     {
         scale_dps = 500;
     }
@@ -141,175 +202,412 @@ void imu_read_gyro(IMUParams * imu, float * w_x, float * w_y, float * w_z)
     *w_x = (float) x_raw * lsb_to_dps * IMU_DEG_TO_RAD;
     *w_y = (float) y_raw * lsb_to_dps * IMU_DEG_TO_RAD;
     *w_z = (float) z_raw * lsb_to_dps * IMU_DEG_TO_RAD;
+
+    return RET_OK;
 }
 
-void imu_read_gyro_raw(IMUParams * imu, int16_t * w_x_lsb, int16_t * w_y_lsb, int16_t * w_z_lsb)
+ErrorType imu_read_gyro_degps(ImuParams * imu, float * w_x, float * w_y, float * w_z)
 {
     uint8_t w[6];
-    imu_read(imu, IMU_OUTX_L_G, 6, w);
+    imu_read(imu, IMU_REG_OUTX_L_G, 6, w);
+
+    int16_t x_raw, y_raw, z_raw;
+
+    // convert low and high bytes into single value
+    x_raw = w[0] | (w[1] << 8);          // OUT_L_G | OUT_H_G << 8
+    y_raw = w[2] | (w[3] << 8);
+    z_raw = w[4] | (w[5] << 8);
+
+    // convert LSBs to radians per second
+    uint16_t scale_dps;
+
+    if (imu->GyroParams.fs == IMU_FS_G_2000DPS)
+    {
+        scale_dps = 2000;
+    }
+    else if (imu->GyroParams.fs == IMU_FS_G_1000DPS)
+    {
+        scale_dps = 1000;
+    }
+    else if (imu->GyroParams.fs == IMU_FS_G_500DPS)
+    {
+        scale_dps = 500;
+    }
+    else
+    {
+        scale_dps = 245;
+    }
+
+    float lsb_to_dps = (float) scale_dps / SHRT_MAX;
+
+    // LSBs -> DEG/S
+    *w_x = (float) x_raw * lsb_to_dps;
+    *w_y = (float) y_raw * lsb_to_dps;
+    *w_z = (float) z_raw * lsb_to_dps;
+
+    return RET_OK;
+}
+
+ErrorType imu_read_gyro_raw(ImuParams * imu, int16_t * w_x_lsb, int16_t * w_y_lsb, int16_t * w_z_lsb)
+{
+    uint8_t w[6];
+    imu_read(imu, IMU_REG_OUTX_L_G, 6, w);
 
     // convert low and high bytes into single value
     *w_x_lsb = w[0] | (w[1] << 8);          // OUT_L_G | OUT_H_G << 8
     *w_y_lsb = w[2] | (w[3] << 8);
     *w_z_lsb = w[4] | (w[5] << 8);
+    
+    return RET_OK;
 }
 
-static void gyro_init(IMUParams * imu)
+ErrorType gyro_powerdown(ImuParams * imu)
 {
+    // turn off gyroscope by clearing all ODR bits
+    uint8_t ctrl2_g = imu_read_reg(imu, IMU_REG_CTRL2_G);
+    ctrl2_g &= 0x0f;                                    // turn off all ODR bits
+    imu_write_reg(imu, IMU_REG_CTRL2_G, ctrl2_g);
+
+    return RET_OK;
+}
+
+ErrorType accel_powerdown(ImuParams * imu)
+{
+    // turn off accelerometer by clearing all ODR bits
+    uint8_t ctrl1_xl = imu_read_reg(imu, IMU_REG_CTRL1_XL);
+    ctrl1_xl &= 0x0f;                                   // turn off all ODR bits
+    imu_write_reg(imu, IMU_REG_CTRL1_XL, ctrl1_xl);
+
+    return RET_OK;
+}
+
+ErrorType gyro_powerup(ImuParams * imu)
+{
+    return gyro_set_odr(imu);
+}
+
+ErrorType accel_powerup(ImuParams * imu)
+{
+    return accel_set_odr(imu);
+}
+
+/**************************************** Helper Functions *******************************************/
+static ErrorType imu_sw_reset(ImuParams * imu)
+{
+    // AN5130 section 5.7
+    // 1. Power down gyroscope
+    gyro_powerdown(imu);
+
+    // 2. Set accelerometer in High Performance mode
+    uint8_t ctrl6_c = imu_read_reg(imu, IMU_REG_CTRL6_C);
+    ctrl6_c &= ~IMU_BIT_XL_HM_MODE;
+    imu_write_reg(imu, IMU_REG_CTRL6_C, ctrl6_c);
+
+    // 3. Set SW_RESET bit
+    uint8_t ctrl3_c = imu_read_reg(imu, IMU_REG_CTRL3_C);
+    ctrl3_c |= IMU_BIT_SW_RESET;
+    imu_write_reg(imu, IMU_REG_CTRL3_C, ctrl3_c);
+
+    // 4. wait for software reset bit to clear
+    while (imu_read_reg(imu, IMU_REG_CTRL3_C) & IMU_BIT_SW_RESET);
+
+    return RET_OK;
+}
+
+static ErrorType imu_reboot(ImuParams * imu)
+{
+    // AN5130 section 5.7
+    // 1. Power down gyroscope
+    gyro_powerdown(imu);
+
+    // 2. Set accelerometer in High Performance mode
+    uint8_t ctrl6_c = imu_read_reg(imu, IMU_REG_CTRL6_C);
+    ctrl6_c &= ~IMU_BIT_XL_HM_MODE;
+    imu_write_reg(imu, IMU_REG_CTRL6_C, ctrl6_c);
+
+    // 3. Set boot bit
+    uint8_t ctrl3_c = imu_read_reg(imu, IMU_REG_CTRL3_C);
+    ctrl3_c |= IMU_BIT_BOOT;
+    imu_write_reg(imu, IMU_REG_CTRL3_C, ctrl3_c);
+
+    // 4. Wait 15ms
+    imu->delay_ms(15);
+
+    return RET_OK;
+}
+
+static ErrorType imu_set_it(ImuParams * imu)
+{
+    imu_write_reg(imu, IMU_REG_INT1_CTRL, imu->IntParams.int1);     // INT1
+    imu_write_reg(imu, IMU_REG_INT2_CTRL, imu->IntParams.int2);     // INT2
+
+    return RET_OK;
+}
+
+static ErrorType gyro_init(ImuParams * imu)
+{
+    if (gyro_set_odr(imu) != RET_OK)
+        return RET_INVALID_CFG;
+
+    if (gyro_set_fs(imu) != RET_OK)
+        return RET_INVALID_CFG;
+
     // configure gyroscope
-    uint8_t ctrl4_c = imu_read_reg(imu, IMU_CTRL4_C);
-    uint8_t ctrl6_c = imu_read_reg(imu, IMU_CTRL6_C);
-    uint8_t ctrl7_g = imu_read_reg(imu, IMU_CTRL7_G);
+    uint8_t ctrl4_c = imu_read_reg(imu, IMU_REG_CTRL4_C);
+    uint8_t ctrl6_c = imu_read_reg(imu, IMU_REG_CTRL6_C);
+    uint8_t ctrl7_g = imu_read_reg(imu, IMU_REG_CTRL7_G);
 
-    if (imu->gyro.odr < IMU_ODR_416HZ)
+    // if using filter, high performance mode must be enabled
+    if (imu->GyroParams.filt != IMU_NO_FILTER)
+        ctrl7_g &= ~IMU_BIT_G_HM_MODE;
+
+    // configure LPF and HPF
+    if (imu->GyroParams.filt == IMU_BPF_EN || imu->GyroParams.filt == IMU_LPF_EN)
     {
-        ctrl7_g |= IMU_G_HM_MODE;               // disable high performance mode
+        ctrl4_c |= IMU_BIT_LPF1_SEL_G;              // enable lowpass filter
+        ctrl6_c &= ~IMU_BIT_FTYPE_MASK;             // set bandwith to medium value
     }
     else
     {
-        ctrl7_g &= ~IMU_G_HM_MODE;              // enable high performance mode
+        ctrl4_c &= ~IMU_BIT_LPF1_SEL_G;             // disable lowpass filter
     }
 
-    if (imu->gyro.lpf == IMU_LPF_EN)
+    if (imu->GyroParams.filt == IMU_BPF_EN || imu->GyroParams.filt == IMU_HPF_EN)
     {
-        ctrl4_c |= IMU_LPF1_SEL_G;              // enable lowpass filter
-        ctrl6_c &= ~IMU_FTYPE_MASK;             // set bandwith to medium value
+        ctrl7_g |= IMU_BIT_HP_EN_G;                 // enable digital high pass filter
+
+        // select cutoff frequency
+        if (imu->GyroParams.cutoff <= IMU_HP_G_1_04HZ)
+            ctrl7_g |= imu->GyroParams.cutoff << IMU_BIT_HPM_G_SHIFT;
+        else
+            return RET_INVALID_CFG;
     }
     else
     {
-        ctrl4_c &= ~IMU_LPF1_SEL_G;             // disable lowpass filter
+        ctrl7_g &= ~IMU_BIT_HP_EN_G;                // disable highpass filter
     }
 
-    if (imu->gyro.hpf == IMU_HPF_EN)
-    {
-        ctrl7_g |= IMU_HP_EN_G | imu->gyro.hp_cutoff;   // enable highpass filter and select cutoff
-    }
-    else
-    {
-        ctrl7_g &= ~IMU_HP_EN_G;                // disable highpass filter
-    }
+    imu_write_reg(imu, IMU_REG_CTRL4_C, ctrl4_c | IMU_BIT_I2C_DISABLE);
+    imu_write_reg(imu, IMU_REG_CTRL6_C, ctrl6_c);
+    imu_write_reg(imu, IMU_REG_CTRL7_G, ctrl7_g);
 
-    imu_write_reg(imu, IMU_CTRL2_G, imu->gyro.odr | imu->gyro.fs);      // select output data rate and degrees per second
-    imu_write_reg(imu, IMU_CTRL4_C, ctrl4_c | IMU_I2C_DISABLE);
-    imu_write_reg(imu, IMU_CTRL6_C, ctrl6_c);
-    imu_write_reg(imu, IMU_CTRL7_G, ctrl7_g);
+    return RET_OK;
 }
 
-static void accel_init(IMUParams * imu)
+static ErrorType accel_init(ImuParams * imu)
 {
+    if (accel_set_odr(imu) != RET_OK)
+        return RET_INVALID_CFG;
+
+    if (accel_set_fs(imu) != RET_OK)
+        return RET_INVALID_CFG;
+
     // configure accelerometer
     // odr should be configured as 2x gyro odr to match odr rates
-    uint8_t ctrl6_c = imu_read_reg(imu, IMU_CTRL6_C);
-    uint8_t ctrl8_xl = imu_read_reg(imu, IMU_CTRL8_XL);
+    uint8_t ctrl6_c = imu_read_reg(imu, IMU_REG_CTRL6_C);
+    uint8_t ctrl8_xl = imu_read_reg(imu, IMU_REG_CTRL8_XL);
     
-    if (imu->xl.odr < IMU_ODR_416HZ)
+    // bandpass filter mode not allowed
+    if (imu->AccelParams.filt == IMU_BPF_EN)
+        return RET_INVALID_CFG;
+    
+    // if any filters are enabled, high performance mode must be on
+    if (imu->AccelParams.filt != IMU_NO_FILTER)
+        ctrl6_c &= ~IMU_BIT_XL_HM_MODE;
+
+    if (imu->AccelParams.filt == IMU_LPF_EN)
     {
-        ctrl6_c |= IMU_XL_HM_MODE;              // disable high performance mode
+        ctrl8_xl &= ~IMU_BIT_HP_SLOPE_XL_EN;            // disable highpass filter
+        ctrl8_xl |= IMU_BIT_LPF2_XL_EN;                 // enable lowpass filter
+        ctrl8_xl &= ~(IMU_BIT_HPCF_XL1 | IMU_BIT_HPCF_XL0);     // ODR/50
+    }
+    else if (imu->AccelParams.filt == IMU_HPF_EN)
+    {
+        ctrl8_xl |= IMU_BIT_HP_SLOPE_XL_EN;             // enable highpass filter
+        ctrl8_xl &= ~IMU_BIT_LPF2_XL_EN;                // disable lowpass filter
+        ctrl8_xl &= ~(IMU_BIT_HPCF_XL1 | IMU_BIT_HPCF_XL0);     // ODR/4
     }
     else
     {
-        ctrl6_c &= ~IMU_XL_HM_MODE;             // enable high performance mode
+        ctrl8_xl &= ~IMU_BIT_HP_SLOPE_XL_EN;            // disable highpass filter
+        ctrl8_xl &= ~IMU_BIT_LPF2_XL_EN;                // disable lowpass filter
     }
 
-    if (imu->xl.filter_mode == IMU_LPF_EN)
+    imu_write_reg(imu, IMU_REG_CTRL6_C, ctrl6_c);
+    imu_write_reg(imu, IMU_REG_CTRL8_XL, ctrl8_xl);
+    imu_write_reg(imu, IMU_REG_CTRL9_XL, 0);
+
+    return RET_OK;
+}
+
+static ErrorType imu_set_fifo_mode(ImuParams * imu)
+{
+    ImuFifoOdr fifo_odr = imu->FifoParams.odr;
+    ImuGyroOdr gyro_odr = imu->GyroParams.odr;
+    ImuAccelOdr xl_odr = imu->AccelParams.odr;
+
+    ImuFifoMode fifo_mode = imu->FifoParams.mode;
+
+    // check for invalid configs
+    if (fifo_odr > IMU_ODR_FIFO_6_66KHZ || xl_odr > IMU_ODR_XL_1_6HZ || gyro_odr > IMU_ODR_G_6_66KHZ)
+        return RET_INVALID_CFG;
+
+    if (fifo_mode > IMU_FIFO_CONT)
+        return RET_INVALID_CFG;
+
+    // FIFO ODR must be less than or equal to accelerometer ODR and gyro ODR
+    if (((uint8_t) fifo_odr > (uint8_t) xl_odr || (uint8_t) fifo_odr > (uint8_t) gyro_odr) && (xl_odr != IMU_ODR_XL_1_6HZ))
+        return RET_INVALID_CFG;
+
+    uint8_t fifo_ctrl5 = (fifo_odr << IMU_BIT_FIFO_ODR_SHIFT) | (fifo_mode << IMU_BIT_FIFO_MODE_SHIFT);
+    imu_write_reg(imu, IMU_REG_FIFO_CTRL5, fifo_ctrl5);
+
+    return RET_OK;
+}
+
+static ErrorType gyro_set_odr(ImuParams * imu)
+{
+    ImuGyroOdr odr = imu->GyroParams.odr;
+    ImuFilterMode filt = imu->GyroParams.filt;
+
+    uint8_t ctrl7_g = imu_read_reg(imu, IMU_REG_CTRL7_G);
+
+    if (odr > IMU_ODR_G_6_66KHZ)
+        return RET_INVALID_CFG;
+
+    // if filter is selected, must be high performance mode
+    if (filt != IMU_NO_FILTER)
     {
-        ctrl8_xl &= ~IMU_HP_SLOPE_XL_EN;            // disable highpass filter
-        ctrl8_xl |= IMU_LPF2_XL_EN;                 // enable lowpass filter
-        ctrl8_xl &= ~(IMU_HPCF_XL1 | IMU_HPCF_XL0);     // ODR/50
-    }
-    else if (imu->xl.filter_mode == IMU_HPF_EN)
-    {
-        ctrl8_xl |= IMU_HP_SLOPE_XL_EN;             // enable highpass filter
-        ctrl8_xl &= ~IMU_LPF2_XL_EN;                // disable lowpass filter
-        ctrl8_xl &= ~(IMU_HPCF_XL1 | IMU_HPCF_XL0);     // ODR/4
+        ctrl7_g &= ~IMU_BIT_G_HM_MODE;                      // high performance mode
     }
     else
     {
-        ctrl8_xl &= ~IMU_HP_SLOPE_XL_EN;            // disable highpass filter
-        ctrl8_xl &= ~IMU_LPF2_XL_EN;                // disable lowpass filter
+        if (odr >= IMU_ODR_G_12_5HZ && odr <= IMU_ODR_G_208HZ)
+            ctrl7_g |= IMU_BIT_G_HM_MODE;                       // disable high performance mode
+        else
+            ctrl7_g &= ~IMU_BIT_G_HM_MODE;                      // high performance mode
     }
 
-    imu_write_reg(imu, IMU_CTRL1_XL, imu->xl.odr | imu->xl.fs);         // select output data rate and degrees per second
-    imu_write_reg(imu, IMU_CTRL6_C, ctrl6_c);
-    imu_write_reg(imu, IMU_CTRL8_XL, ctrl8_xl);
-    imu_write_reg(imu, IMU_CTRL9_XL, 0);
+    imu_write_reg(imu, IMU_REG_CTRL7_G, ctrl7_g);
+
+    // only modify ODR bits
+    uint8_t ctrl2_g = imu_read_reg(imu, IMU_REG_CTRL2_G);
+    ctrl2_g = (ctrl2_g & 0x0f) | (odr << IMU_BIT_ODR_G_SHIFT);
+    imu_write_reg(imu, IMU_REG_CTRL2_G, ctrl2_g);
+
+    return RET_OK;
 }
 
-void gyro_powerdown(IMUParams * imu)
+static ErrorType accel_set_odr(ImuParams * imu)
 {
-    uint8_t ctrl2_g = imu_read_reg(imu, IMU_CTRL2_G);
-    ctrl2_g = (ctrl2_g & 0x0f) | IMU_ODR_PWR_DOWN;          // turn off all ODR bits
-    imu_write_reg(imu, IMU_CTRL2_G, ctrl2_g);
+    ImuAccelOdr odr = imu->AccelParams.odr;
+    ImuFilterMode filt = imu->GyroParams.filt;
+
+    uint8_t ctrl6_c = imu_read_reg(imu, IMU_REG_CTRL6_C);
+
+    if (odr >= IMU_ODR_XL_1_6HZ)
+        return RET_INVALID_CFG;
+
+    // if filter is selected, must be high performance mode
+    if (filt != IMU_NO_FILTER)
+    {
+        ctrl6_c &= ~IMU_BIT_XL_HM_MODE;                     // high performance mode
+    }
+    else 
+    {
+        if ((odr >= IMU_ODR_XL_12_5HZ && odr <= IMU_ODR_XL_208HZ) || odr == IMU_ODR_XL_1_6HZ)
+            ctrl6_c |= IMU_BIT_XL_HM_MODE;                      // disable high peformance mode
+        else
+            ctrl6_c &= ~IMU_BIT_XL_HM_MODE;                     // high performance mode
+    }
+
+    imu_write_reg(imu, IMU_REG_CTRL6_C, ctrl6_c);
+
+    // only modify ODR bits
+    uint8_t ctrl1_xl = imu_read_reg(imu, IMU_REG_CTRL1_XL);
+    ctrl1_xl = (ctrl1_xl & 0x0f) | (odr << IMU_BIT_ODR_XL_SHIFT);
+    imu_write_reg(imu, IMU_REG_CTRL1_XL, ctrl1_xl);
+
+    return RET_OK;
 }
 
-void accel_powerdown(IMUParams * imu)
+static ErrorType gyro_set_fs(ImuParams * imu)
 {
-    uint8_t ctrl1_xl = imu_read_reg(imu, IMU_CTRL1_XL);
-    ctrl1_xl = (ctrl1_xl & 0x0f) | IMU_ODR_PWR_DOWN;          // turn off all ODR bits
-    imu_write_reg(imu, IMU_CTRL1_XL, ctrl1_xl);
+    ImuGyroFs fs = imu->GyroParams.fs;
+
+    if (fs > IMU_FS_G_2000DPS)
+        return RET_INVALID_CFG;
+    
+    uint8_t ctrl2_g = imu_read_reg(imu, IMU_REG_CTRL2_G);
+    ctrl2_g = (ctrl2_g & 0xf3) | (fs << IMU_BIT_FS_G_SHIFT);
+    imu_write_reg(imu, IMU_REG_CTRL2_G, ctrl2_g);
+
+    return RET_OK;
 }
 
-void gyro_powerup(IMUParams * imu)
+static ErrorType accel_set_fs(ImuParams * imu)
 {
-    uint8_t ctrl2_g = imu_read_reg(imu, IMU_CTRL2_G);
-    ctrl2_g = (ctrl2_g & 0x0f) | imu->gyro.odr;          // select desired ODR
-    imu_write_reg(imu, IMU_CTRL2_G, ctrl2_g);
-}
+    ImuAccelFs fs = imu->AccelParams.fs;
 
-void accel_powerup(IMUParams * imu)
-{
-    uint8_t ctrl1_xl = imu_read_reg(imu, IMU_CTRL1_XL);
-    ctrl1_xl = (ctrl1_xl & 0x0f) | imu->xl.odr;          // select desired ODR
-    imu_write_reg(imu, IMU_CTRL1_XL, ctrl1_xl);
-}
+    if (fs > IMU_FS_XL_8G)
+        return RET_INVALID_CFG;
 
-/************************* SPI Wrapper Functions ***********************/
-static inline void imu_select(IMUParams * imu)
+    uint8_t ctrl1_xl = imu_read_reg(imu, IMU_REG_CTRL1_XL);
+    ctrl1_xl = (ctrl1_xl & 0xf3) | (fs << IMU_BIT_FS_XL_SHIFT);
+    imu_write_reg(imu, IMU_REG_CTRL1_XL, ctrl1_xl);
+
+    return RET_OK;
+}
+/*****************************************************************************************************/
+
+
+/************************************* SPI Wrapper Functions *****************************************/
+static inline void imu_select(ImuParams * imu)
 {
     HAL_GPIO_WritePin(imu->cs_gpio, imu->cs, GPIO_PIN_RESET);
 }
 
-static inline void imu_deselect(IMUParams * imu)
+static inline void imu_deselect(ImuParams * imu)
 {
     HAL_GPIO_WritePin(imu->cs_gpio, imu->cs, GPIO_PIN_SET);
 }
 
-static void imu_write_reg(IMUParams * imu, uint8_t addr, uint8_t data)
+static void imu_write_reg(ImuParams * imu, uint8_t addr, uint8_t data)
 {
     uint8_t cmd[2] = {addr | IMU_WRITE, data};
     
     imu_select(imu);
-    HAL_SPI_Transmit(imu->hspi, cmd, 2, HAL_TIMEOUT);
+    HAL_SPI_Transmit(imu->hspi, cmd, 2, SPI_TIMEOUT_MS);
     imu_deselect(imu);
 }
 
-static uint8_t imu_read_reg(IMUParams * imu, uint8_t addr)
+static uint8_t imu_read_reg(ImuParams * imu, uint8_t addr)
 {
     uint8_t result;
     addr |= IMU_READ;
     
     imu_select(imu);
-    HAL_SPI_Transmit(imu->hspi, &addr, 1, HAL_TIMEOUT);
-    HAL_SPI_Receive(imu->hspi, &result, 1, HAL_TIMEOUT);
+    HAL_SPI_Transmit(imu->hspi, &addr, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(imu->hspi, &result, 1, SPI_TIMEOUT_MS);
     imu_deselect(imu);
     
     return result;
 }
 
-static void imu_read(IMUParams * imu, uint8_t start_addr, uint8_t len, uint8_t * data)
+static void imu_read(ImuParams * imu, uint8_t start_addr, uint8_t len, uint8_t * data)
 {
     // read multiple byte burst from IMU
     // IF_INC must be enabled in CTRL3_C reg
     start_addr |= IMU_READ;
 
     imu_select(imu);
-    HAL_SPI_Transmit(imu->hspi, &start_addr, 1, HAL_TIMEOUT);
-    HAL_SPI_Receive(imu->hspi, data, len, HAL_TIMEOUT);
+    HAL_SPI_Transmit(imu->hspi, &start_addr, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(imu->hspi, data, len, SPI_TIMEOUT_MS);
     imu_deselect(imu);
 }
 
-static uint8_t imu_status(IMUParams * imu)
+static uint8_t imu_status(ImuParams * imu)
 {
-    return imu_read_reg(imu, IMU_STATUS_REG);
+    return imu_read_reg(imu, IMU_REG_STATUS);
 }
-/***********************************************************************/
+/*****************************************************************************************************/

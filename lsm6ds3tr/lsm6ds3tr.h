@@ -324,34 +324,34 @@ typedef enum : uint8_t {
 
 typedef struct {
 
-    SPI_HandleTypeDef * hspi;               // SPI handle
+    SPI_HandleTypeDef * hspi;                   // SPI handle
 
-    GPIO_TypeDef * cs_gpio;                 // SPI CS GPIO port
-    uint16_t cs;                            // SPI CS pin
+    GPIO_TypeDef * cs_gpio;                     // SPI CS GPIO port
+    uint16_t cs;                                // SPI CS pin
 
-    void (*delay_ms)(uint32_t);             // pointer to delay function
+    void (*delay_ms)(uint32_t);                 // pointer to delay function
 
     struct {
-        ImuGyroOdr odr;                        // gyro output data rate
-        ImuGyroFs fs;                          // gyro full-scale range
-        ImuFilterMode filt;                 // filter selection
-        ImuGyroHighpassCutoff cutoff;          // high pass filter cutoff
+        ImuGyroOdr odr;                         // gyro output data rate
+        ImuGyroFs fs;                           // gyro full-scale range
+        ImuFilterMode filt;                     // filter selection
+        ImuGyroHighpassCutoff cutoff;           // high pass filter cutoff
     } GyroParams;
 
     struct {
-        ImuAccelOdr odr;                       // accel output data rate
-        ImuAccelFs fs;                         // accel full-scale range
-        ImuFilterMode filt;                 // filter selection
+        ImuAccelOdr odr;                        // accel output data rate
+        ImuAccelFs fs;                          // accel full-scale range
+        ImuFilterMode filt;                     // filter selection
     } AccelParams;
 
     struct {
-        ImuFifoOdr odr;                        // FIFO odr must be < accel and gyro
-        ImuFifoMode mode;                      // FIFO mode
+        ImuFifoOdr odr;                         // FIFO odr must be < accel and gyro
+        ImuFifoMode mode;                       // FIFO mode
     } FifoParams;
 
     struct {
-        ImuInt1Sel int1;                       // INT1 event selection
-        ImuInt2Sel int2;                       // INT2 event selection
+        ImuInt1Sel int1;                        // INT1 event selection
+        ImuInt2Sel int2;                        // INT2 event selection
     } IntParams;
 
 } ImuParams;

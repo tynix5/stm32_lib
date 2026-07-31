@@ -251,5 +251,6 @@ void rf_flush_rx(RadioParams * radio);
 void rf_flush_tx(RadioParams * radio);
 uint8_t rf_read_status(RadioParams * radio);
 void rf_clear_status(RadioParams * radio);
+uint8_t rf_carrier_detect(RadioParams * radio);
 
 #endif

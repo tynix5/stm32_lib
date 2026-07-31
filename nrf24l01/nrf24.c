@@ -111,7 +111,7 @@ void rf_init(RadioParams * radio)
     // using ACK is determined by using W_TX_PAYLOAD_NOACK or W_TX_PAYLOAD
     uint8_t feature[2] = {NRF_REG_FEATURE | NRF_W_REGISTER, curr_features};
     rf_spi_transmit(radio, feature, 2);
-
+    
     rf_set_irq(radio);
 
     rf_flush_rx(radio);
@@ -359,6 +359,18 @@ void rf_clear_status(RadioParams * radio)
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(radio->hspi, cmd, 2, SPI_TIMEOUT_MS);
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+}
+
+uint8_t rf_carrier_detect(RadioParams * radio)
+{
+    uint8_t cmd[2] = {NRF_REG_CD, 0};
+    uint8_t cd[2];
+
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
+    HAL_SPI_TransmitReceive(radio->hspi, cmd, cd, 2, SPI_TIMEOUT_MS);
+    HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
+
+    return cd[1];
 }
 
 /**************************************** Helper Functions *******************************************/

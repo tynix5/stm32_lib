@@ -10,6 +10,7 @@
 typedef enum {
     
     RET_OK = 0,                         // success
+    RET_BUSY,
     RET_TIMEOUT,                        // timed out
     RET_INVALID_CFG,                    // bad configuration
     RET_DISCREPANCY                     // written value != read value

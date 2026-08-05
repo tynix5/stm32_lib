@@ -19,7 +19,7 @@ static void rf_spi_transmit(RadioParams * radio, uint8_t * data, uint8_t len);
 static void rf_spi_transmit_receive(RadioParams * radio, uint8_t * src, uint8_t * dest, uint8_t len);
 /*****************************************************************************************************/
 
-void rf_init(RadioParams * radio)
+ErrorRF rf_init(RadioParams * radio)
 {
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     rf_disable(radio);
@@ -117,6 +117,8 @@ void rf_init(RadioParams * radio)
     rf_flush_rx(radio);
     rf_flush_tx(radio);
     // radio module should be in standby mode after exiting
+
+    return RF_SUCCESS;
 }
 
 ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen)

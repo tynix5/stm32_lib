@@ -238,7 +238,7 @@ typedef struct {
 
 } RadioParams;
 
-void rf_init(RadioParams * radio);
+ErrorRF rf_init(RadioParams * radio);
 ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen);
 ErrorRF rf_listen(RadioParams * radio, uint32_t timeout);
 ErrorRF rf_listen_it(RadioParams * radio);

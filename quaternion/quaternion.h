@@ -22,6 +22,7 @@ void quat_sub(Quaternion q_1, Quaternion q_2, Quaternion * q_diff);
 void quat_normalize(Quaternion * q);
 /* Convert from quaternion to Euler angle (rad) */
 void quat_to_euler(Quaternion q, float * pitch, float * roll, float * yaw);
-
+/* Convert from euler (rad) to quaternion */
+void euler_to_quat(float pitch, float roll, float yaw, Quaternion * q);
 
 #endif

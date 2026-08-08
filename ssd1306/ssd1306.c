@@ -1,62 +1,63 @@
 #include "ssd1306.h"
-#include "stm32l4xx_hal.h"
+#include "ssd1306_hal.h"
 #include "font8x8_basic.h"
-#include <string.h>             // memcpy
+#include <string.h> // memcpy
 #include <math.h>
 
-I2C_HandleTypeDef * hi2c;
+/********************************************** OLED Helper Functions *******************************************/
+static status_t ssd1306_write_buff(ssd1306_handle_t * holed, uint8_t x_new, uint8_t y_new, uint8_t offset, ssd1306_pix_color_t color);
+static status_t ssd1306_write_buff_col(ssd1306_handle_t * holed, uint8_t x_new, uint8_t y_new, ssd1306_pix_color_t color);
+static status_t ssd1306_transform_xy(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t * x_new, uint8_t * y_new, uint8_t * offset);
+static status_t ssd1306_set_column(ssd1306_handle_t * holed, uint8_t col);
+static status_t ssd1306_set_page(ssd1306_handle_t * holed, uint8_t page);
+/****************************************************************************************************************/
 
-uint8_t buff[RAM_PAGES][RES_X] = {0};
+ssd1306_handle_t * ssd1306_devices[SSD1306_MAX_DEVICES];
+uint8_t ssd1306_device_cnt = 0;
 
-/******************* I2C Wrapper Functions ****************/
-static void ssd1306_write_cmd(uint8_t cmd);
-static void ssd1306_write_ram(uint8_t byte);
-static void ssd1306_transform_xy(uint8_t x, uint8_t y, uint8_t * x_new, uint8_t * y_new, uint8_t * offset);
-static void ssd1306_set_column(uint8_t col);
-static void ssd1306_set_page(uint8_t page);
-static void i2c_write_byte(uint8_t addr, uint8_t byte);
-/**********************************************************/
-
-void ssd1306_init(I2C_HandleTypeDef * hi2c_)
+status_t ssd1306_init(ssd1306_handle_t * holed)
 {
-    hi2c = hi2c_;
+    // register device
+    ssd1306_devices[ssd1306_device_cnt++] = holed;
+
+    holed->dma_busy = SSD1306_DMA_OK;
 
     // wait for display to power up
     HAL_Delay(100);
 
-    uint8_t init[] = {
-        COMMAND,
-        DISPLAY_OFF,
-        RESUME_RAM,
-        NORMAL_DISP,
-        MEM_ADDR_MODE,
-        HORIZONTAL_ADDR,
-        CHARGE_PUMP_REG,
-        EN_CHARGE_PUMP,
-        DISPLAY_ON
-    };
+    uint8_t init[] = {SSD1306_I2C_COMMAND,
+                      SSD1306_SET_START_LINE,
+                      SSD1306_DISPLAY_OFF,
+                      SSD1306_RESUME_RAM,
+                      SSD1306_NORMAL_DISP,
+                      SSD1306_MEM_ADDR_MODE,
+                      SSD1306_HORIZONTAL_ADDR,
+                      SSD1306_CHARGE_PUMP_REG,
+                      SSD1306_EN_CHARGE_PUMP,
+                      SSD1306_DISPLAY_ON};
 
-    HAL_I2C_Master_Transmit(hi2c, SSD1306_WRITE, init, sizeof(init), HAL_TIMEOUT);
+    memcpy(holed->tx_buff, init, sizeof(init));
+    return ssd1306_write(holed, holed->tx_buff, sizeof(init));
 }
 
-void ssd1306_draw_pixel(uint8_t x, uint8_t y)
+status_t ssd1306_draw_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y)
 {
     uint8_t x_new, y_new, offset;
-    ssd1306_transform_xy(x, y, &x_new, &y_new, &offset);
-    buff[y_new][x_new] |= (1 << offset);
+    ssd1306_transform_xy(holed, x, y, &x_new, &y_new, &offset);
+    return ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
 }
 
-void ssd1306_clear_pixel(uint8_t x, uint8_t y)
+status_t ssd1306_clear_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y)
 {
     uint8_t x_new, y_new, offset;
-    ssd1306_transform_xy(x, y, &x_new, &y_new, &offset);
-    buff[y_new][x_new] &= ~(1 << offset);
+    ssd1306_transform_xy(holed, x, y, &x_new, &y_new, &offset);
+    return ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_BLACK);
 }
 
-void ssd1306_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
+status_t ssd1306_draw_line(ssd1306_handle_t * holed, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
 {
     if (x0 > RES_X - 1 || x1 > RES_X - 1 || y0 > RES_Y - 1 || y1 > RES_Y - 1)
-        return;
+        return STATUS_INVALID_CFG;
 
     uint8_t x_start = x0, y_start = y0;
     uint8_t x_end = x1, y_end = y1;
@@ -79,211 +80,267 @@ void ssd1306_draw_line(uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
     {
         for (uint8_t i = y_start; i < y_end; i++)
         {
-            ssd1306_transform_xy(x0, i, &x_xform, &y_xform, &offset);
-            buff[y_xform][x_xform] |= (1 << offset);
+            ssd1306_transform_xy(holed, x0, i, &x_xform, &y_xform, &offset);
+            ssd1306_write_buff(holed, x_xform, y_xform, offset, SSD1306_PIX_WHITE);
         }
-        return;
+        return STATUS_OK;
     }
 
-    double slope = (double) (y_end - y_start) / (x_end - x_start);
+    double slope = (double)(y_end - y_start) / (x_end - x_start);
 
-    double y_curr = (double) y_start;
+    double y_curr = (double)y_start;
 
     for (uint8_t i = x_start + 1; i <= x_end; i++)
     {
         y_curr += slope;
-        ssd1306_transform_xy(i, (uint8_t) round(y_curr), &x_xform, &y_xform, &offset);
-        buff[y_xform][x_xform] |= (1 << offset);
+        ssd1306_transform_xy(holed, i, (uint8_t)round(y_curr), &x_xform, &y_xform, &offset);
+        ssd1306_write_buff(holed, x_xform, y_xform, offset, SSD1306_PIX_WHITE);
     }
+
+    return STATUS_OK;
 }
 
-void ssd1306_draw_rect(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+status_t ssd1306_draw_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 {
     // (x, y) is top left corner of rectangle
     if (x > RES_X - 1 || y > RES_Y - 1 || x + w > RES_X - 1 || y + h > RES_Y - 1)
-        return;
+        return STATUS_INVALID_CFG;
 
     uint8_t x_new, y_new, offset;
 
     // top
     for (uint8_t i = 0; i < w; i++)
     {
-        ssd1306_transform_xy(x + i, y, &x_new, &y_new, &offset);
-        buff[y_new][x_new] |= (1 << offset);
+        ssd1306_transform_xy(holed, x + i, y, &x_new, &y_new, &offset);
+        ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
     }
 
     // bottom
     for (uint8_t i = 0; i < w; i++)
     {
-        ssd1306_transform_xy(x + i, y + h, &x_new, &y_new, &offset);
-        buff[y_new][x_new] |= (1 << offset);
+        ssd1306_transform_xy(holed, x + i, y + h, &x_new, &y_new, &offset);
+        ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
     }
 
     // left
     for (uint8_t i = 0; i < h; i++)
     {
-        ssd1306_transform_xy(x, y + i, &x_new, &y_new, &offset);
-        buff[y_new][x_new] |= (1 << offset);
+        ssd1306_transform_xy(holed, x, y + i, &x_new, &y_new, &offset);
+        ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
     }
 
     // right
     for (uint8_t i = 0; i < h; i++)
     {
-        ssd1306_transform_xy(x + w, y + i, &x_new, &y_new, &offset);
-        buff[y_new][x_new] |= (1 << offset);
-    }    
+        ssd1306_transform_xy(holed, x + w, y + i, &x_new, &y_new, &offset);
+        ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
+    }
+
+    return STATUS_OK;
 }
 
-void ssd1306_draw_filled_rect(uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+status_t ssd1306_draw_filled_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 {
     if (x > RES_X - 1 || y > RES_Y - 1 || x + w > RES_X - 1 || y + h > RES_Y - 1)
-        return;
+        return STATUS_INVALID_CFG;
 
     for (uint8_t i = 0; i < w; i++)
     {
         for (uint8_t j = 0; j < h; j++)
         {
             uint8_t x_new, y_new, offset;
-            ssd1306_transform_xy(x + i, y + j, &x_new, &y_new, &offset);
-            buff[y_new][x_new] |= (1 << offset);
+            ssd1306_transform_xy(holed, x + i, y + j, &x_new, &y_new, &offset);
+            ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
         }
     }
+
+    return STATUS_OK;
 }
 
-void ssd1306_draw_circle(uint8_t x, uint8_t y, uint8_t r)
+status_t ssd1306_draw_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r)
 {
     // (x, y) is center of circle
     if (x > RES_X - 1 || x + r > RES_X - 1 || y > RES_Y - 1 || y + r > RES_Y - 1)
-        return;
+        return STATUS_INVALID_CFG;
 
     for (uint8_t curr_x = x - r; curr_x <= x + r; curr_x++)
     {
         // x^2 + y^2 = r^2
         // y^2 = r^2 - x^2
-        uint8_t y_sol = (uint8_t) round(sqrt((double) r * r - (double) (curr_x - x) * (curr_x - x)));
+        uint8_t y_sol = (uint8_t)round(sqrt((double)r * r - (double)(curr_x - x) * (curr_x - x)));
 
         uint8_t x_new, y_new, offset;
-        ssd1306_transform_xy(curr_x, y + y_sol, &x_new, &y_new, &offset);
-        buff[y_new][x_new] |= (1 << offset);
-        ssd1306_transform_xy(curr_x, y - y_sol, &x_new, &y_new, &offset);
-        buff[y_new][x_new] |= (1 << offset);
+        ssd1306_transform_xy(holed, curr_x, y + y_sol, &x_new, &y_new, &offset);
+        ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
+        ssd1306_transform_xy(holed, curr_x, y - y_sol, &x_new, &y_new, &offset);
+        ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
     }
+
+    return STATUS_OK;
 }
 
-void ssd1306_draw_filled_circle(uint8_t x, uint8_t y, uint8_t r)
+status_t ssd1306_draw_filled_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r)
 {
     // (x, y) is center of circle
     if (x > RES_X - 1 || x + r > RES_X - 1 || y > RES_Y - 1 || y + r > RES_Y - 1)
-        return;
+        return STATUS_INVALID_CFG;
 
     for (uint8_t curr_x = x - r; curr_x <= x + r; curr_x++)
     {
         // x^2 + y^2 = r^2
         // y^2 = r^2 - x^2
-        uint8_t y_sol = (uint8_t) round(sqrt((double) r * r - (double) (curr_x - x) * (curr_x - x)));
+        uint8_t y_sol = (uint8_t)round(sqrt((double)r * r - (double)(curr_x - x) * (curr_x - x)));
 
         for (uint8_t curr_y = y - y_sol; curr_y <= y + y_sol; curr_y++)
         {
             uint8_t x_new, y_new, offset;
-            ssd1306_transform_xy(curr_x, curr_y, &x_new, &y_new, &offset);
-            buff[y_new][x_new] |= (1 << offset);
+            ssd1306_transform_xy(holed, curr_x, curr_y, &x_new, &y_new, &offset);
+            ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
         }
     }
+
+    return STATUS_OK;
 }
 
-
-void ssd1306_write_ch(uint8_t x, uint8_t y, char ch)
+status_t ssd1306_write_ch(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char ch)
 {
     if (x + FONT_WIDTH > RES_X - 1 || y + FONT_HEIGHT > RES_Y - 1)
-        return;
-    
-    const uint8_t * bitmap = (uint8_t *) font8x8_basic[(uint8_t) ch];
-    
+        return STATUS_INVALID_CFG;
+
+    const uint8_t * bitmap = (uint8_t *)font8x8_basic[(uint8_t)ch];
+
     for (uint8_t i = 0; i < FONT_HEIGHT; i++)
     {
         for (uint8_t j = 0; j < FONT_WIDTH; j++)
         {
             uint8_t x_new, y_new, offset;
-            ssd1306_transform_xy(x + j, y + i, &x_new, &y_new, &offset);
-            
+            ssd1306_transform_xy(holed, x + j, y + i, &x_new, &y_new, &offset);
+
             if (bitmap[i] & (1 << j))
-                buff[y_new][x_new] |= (1 << offset);
+                ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
             else
-                buff[y_new][x_new] &= ~(1 << offset);
-        } 
+                ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_BLACK);
+        }
     }
+
+    return STATUS_OK;
 }
 
-void ssd1306_write_str(uint8_t x, uint8_t y, char * str)
+status_t ssd1306_write_str(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char * str)
 {
     for (uint8_t i = 0; *str; i++)
     {
-        ssd1306_write_ch(x + i * FONT_WIDTH, y, *str++);
+        ssd1306_write_ch(holed, x + i * FONT_WIDTH, y, *str++);
     }
+
+    return STATUS_OK;
 }
 
-void ssd1306_draw_bitmap(uint8_t x, uint8_t y, uint8_t  bitmap[], uint8_t size_x, uint8_t size_y)
+status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t bitmap[], uint8_t size_x, uint8_t size_y)
 {
     if (x + size_x > RES_X - 1 || y + size_y > RES_Y - 1)
-        return;
+        return STATUS_INVALID_CFG;
 
     for (uint8_t i = 0; i < size_x; i++)
     {
         for (uint8_t j = 0; j < size_y; j++)
         {
             uint8_t x_new, y_new, offset;
-            ssd1306_transform_xy(x + i, y + j, &x_new, &y_new, &offset);
+            ssd1306_transform_xy(holed, x + i, y + j, &x_new, &y_new, &offset);
 
             if (bitmap[j * size_x + i])
-                buff[y_new][x_new] |= (1 << offset);
+                ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
             else
-                buff[y_new][x_new] &= ~(1 << offset);
+                ssd1306_write_buff(holed, x_new, y_new, offset, SSD1306_PIX_BLACK);
         }
     }
+
+    return STATUS_OK;
 }
 
-void ssd1306_set_cursor(uint8_t x, uint8_t y)
+status_t ssd1306_set_cursor(ssd1306_handle_t * holed, uint8_t x, uint8_t y)
 {
     if (x > RES_X - 1)
         x = RES_X - 1;
     if (y > RES_Y - 1)
         y = RES_Y - 1;
 
-    ssd1306_set_column(x);
-    ssd1306_set_page(y / 8);
+    ssd1306_set_column(holed, x);
+    ssd1306_set_page(holed, y / 8);
+
+    return STATUS_OK;
 }
 
-void ssd1306_clear()
+status_t ssd1306_clear(ssd1306_handle_t * holed)
 {
     for (uint8_t i = 0; i < RAM_PAGES; i++)
         for (uint8_t j = 0; j < RES_X; j++)
-            buff[i][j] = 0;
+            ssd1306_write_buff_col(holed, j, i, SSD1306_PIX_BLACK);
+
+    return STATUS_OK;
 }
 
-void ssd1306_update()
+status_t ssd1306_update(ssd1306_handle_t * holed)
 {
-    ssd1306_set_cursor(0, 0);
+    // do not overwrite TX buffer if in use
+    if (holed->dma_busy == SSD1306_DMA_BUSY)
+        return STATUS_BUSY;
 
-    // display write command must start with DATA control byte
-    uint8_t ram[RES_X * RAM_PAGES + 1] = {DATA};
+    // set cursors to (0, 0)
+    // SSD1306 does not like combining commands and data into sigle transaction
+    // uint8_t set_cursor[] = {SSD1306_I2C_COMMAND_CO,
+    //                         SSD1306_SET_COL_ADDR,
+    //                         0,
+    //                         127,
+    //                         SSD1306_I2C_COMMAND,
+    //                         SSD1306_SET_PAGE_ADDR,
+    //                         0,
+    //                         7,
+    //                         SSD1306_I2C_DATA};
 
-    memcpy(ram + 1, buff, sizeof(buff));
-    HAL_I2C_Master_Transmit(hi2c, SSD1306_WRITE, ram, sizeof(ram), 250);
+    // GDDRAM pointer should be always point to beginning of display buffer
+    uint8_t set_cursor[] = {SSD1306_I2C_DATA};
+
+    uint32_t frame_size = holed->res_x * holed->res_y / 8;
+    uint32_t cursor_cmd_size = sizeof(set_cursor);
+
+    memcpy(holed->tx_buff, set_cursor, cursor_cmd_size);
+    memcpy(holed->tx_buff + cursor_cmd_size, holed->frame_buff, frame_size);
+
+    return ssd1306_write(holed, holed->tx_buff, frame_size + cursor_cmd_size);
 }
 
-static void ssd1306_write_cmd(uint8_t cmd)
+/********************************************** OLED Helper Functions *******************************************/
+// absolute trash rewrite once working
+static status_t ssd1306_write_buff(ssd1306_handle_t * holed, uint8_t x_new, uint8_t y_new, uint8_t offset, ssd1306_pix_color_t color)
 {
-    uint8_t data[2] = {COMMAND, cmd};
-    HAL_I2C_Master_Transmit(hi2c, SSD1306_WRITE, data, sizeof(data), HAL_TIMEOUT);
+    uint8_t byte = *(holed->frame_buff + y_new * holed->res_x + x_new);
+
+    if (color == SSD1306_PIX_WHITE)
+        byte |= (1 << offset);
+    else
+        byte &= ~(1 << offset);
+
+    *(holed->frame_buff + y_new * holed->res_x + x_new) = byte;
+
+    return STATUS_OK;
 }
 
-static void ssd1306_write_ram(uint8_t byte)
+static status_t ssd1306_write_buff_col(ssd1306_handle_t * holed, uint8_t x_new, uint8_t y_new, ssd1306_pix_color_t color)
 {
-    uint8_t data[2] = {DATA, byte};
-    HAL_I2C_Master_Transmit(hi2c, SSD1306_WRITE, data, sizeof(data), HAL_TIMEOUT);
+    uint8_t byte;
+
+    if (color == SSD1306_PIX_WHITE)
+        byte = 0xff;
+    else
+        byte = 0;
+
+    *(holed->frame_buff + y_new * holed->res_x + x_new) = byte;
+
+    return STATUS_OK;
 }
 
-static void ssd1306_transform_xy(uint8_t x, uint8_t y, uint8_t * x_new, uint8_t * y_new, uint8_t * offset)
+static status_t ssd1306_transform_xy(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t * x_new, uint8_t * y_new, uint8_t * offset)
 {
     if (x > RES_X - 1)
         x = RES_X - 1;
@@ -293,27 +350,40 @@ static void ssd1306_transform_xy(uint8_t x, uint8_t y, uint8_t * x_new, uint8_t 
     *x_new = x;
     *y_new = y / 8;
     *offset = y % 8;
+
+    return STATUS_OK;
 }
 
-static void ssd1306_set_column(uint8_t col)
+static status_t ssd1306_set_column(ssd1306_handle_t * holed, uint8_t col)
 {
-    if (col > RES_X - 1) 
+    if (col > RES_X - 1)
         col = RES_X - 1;
-    uint8_t data[4] = {COMMAND, SET_COL_ADDR, col, RES_X - 1};
-    HAL_I2C_Master_Transmit(hi2c, SSD1306_WRITE, data, sizeof(data), HAL_TIMEOUT);
+
+    while (holed->dma_busy == SSD1306_DMA_BUSY)
+        ;
+
+    uint8_t data[] = {SSD1306_I2C_COMMAND, SSD1306_SET_COL_ADDR, col, RES_X - 1};
+    memcpy(holed->tx_buff, data, sizeof(data));
+
+    while (ssd1306_write(holed, data, sizeof(data)) == STATUS_BUSY)
+        ;
+
+    return STATUS_OK;
 }
 
-static void ssd1306_set_page(uint8_t page)
+static status_t ssd1306_set_page(ssd1306_handle_t * holed, uint8_t page)
 {
-    if (page > RAM_PAGES - 1) 
+    if (page > RAM_PAGES - 1)
         page = RAM_PAGES - 1;
-    uint8_t data[4] = {COMMAND, SET_PAGE_ADDR, page, RAM_PAGES - 1};
-    HAL_I2C_Master_Transmit(hi2c, SSD1306_WRITE, data, sizeof(data), HAL_TIMEOUT);
-}
 
-static void i2c_write_byte(uint8_t addr, uint8_t byte)
-{
-    uint8_t data[2] = {addr, byte};
-    HAL_I2C_Master_Transmit(hi2c, SSD1306_WRITE, data, sizeof(data), HAL_TIMEOUT);
-}
+    while (holed->dma_busy == SSD1306_DMA_BUSY)
+        ;
 
+    uint8_t data[] = {SSD1306_I2C_COMMAND, SSD1306_SET_PAGE_ADDR, page, RAM_PAGES - 1};
+    memcpy(holed->tx_buff, data, sizeof(data));
+    while (ssd1306_write(holed, data, sizeof(data)) == STATUS_BUSY)
+        ;
+
+    return STATUS_OK;
+}
+/****************************************************************************************************************/

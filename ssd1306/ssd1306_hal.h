@@ -7,8 +7,11 @@
 #define I2C_TIMEOUT_MS      25
 #define I2C_LONG_TIMEOUT_MS 250
 
+/* Generic I2C writer for SSD1306 */
 status_t ssd1306_write(ssd1306_handle_t * holed, uint8_t * data, uint32_t len);
+/* DMA sender method */
 status_t i2c_write_dma(ssd1306_handle_t * holed, uint8_t * data, uint32_t len);
+/* Blocking sender method */
 status_t i2c_write_blocking(ssd1306_handle_t * holed, uint8_t * data, uint32_t len, uint32_t timeout);
 
 #endif

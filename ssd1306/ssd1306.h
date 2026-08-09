@@ -74,9 +74,6 @@
 /*********************************************************************************/
 
 /****************************** Display Parameters *******************************/
-#define RES_X                       128 // pixels
-#define RES_Y                       64  // pixels
-#define RAM_PAGES                   8   // RES_Y / 8 bits per byte
 #define SSD1306_MAX_DEVICES         2
 /*********************************************************************************/
 
@@ -103,15 +100,14 @@ typedef enum
 
 typedef struct
 {
-
     I2C_HandleTypeDef * hi2c;      // I2C handle
 
-    uint8_t * frame_buff;          // pointer to display buffer
-    uint8_t * tx_buff;             // pointer to tx buffer --> should never be modified by user
+    uint8_t * frame_buff;          // pointer to display buffer (res_x * res_y / 8)
+    uint8_t * tx_buff;             // pointer to tx buffer --> should never be modified by user (res_x * res_y / 8 + 13)
     ssd1306_phy_mode_t mode;       // DMA mode or blocking mode
 
-    uint32_t res_x;                // horizontal resolution
-    uint32_t res_y;                // vertical resolution
+    uint32_t res_x;                // horizontal resolution (pixels)
+    uint32_t res_y;                // vertical resolution (pixels)
 
     ssd1306_dma_status_t dma_busy; // is DMA in use
 
@@ -131,7 +127,6 @@ status_t ssd1306_draw_filled_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t
 status_t ssd1306_write_ch(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char ch);
 status_t ssd1306_write_str(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char * str);
 status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t bitmap[], uint8_t size_x, uint8_t size_y);
-status_t ssd1306_set_cursor(ssd1306_handle_t * holed, uint8_t x, uint8_t y);
 status_t ssd1306_clear(ssd1306_handle_t * holed);
 status_t ssd1306_update(ssd1306_handle_t * holed);
 

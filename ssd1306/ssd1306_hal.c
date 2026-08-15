@@ -44,7 +44,8 @@ status_t i2c_write_blocking(ssd1306_handle_t * holed, uint8_t * data, uint32_t l
     return STATUS_ERR;
 }
 
-void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef * hi2c)
+// turn into a callback function and have user register callback 
+void i2c_dma_callback(I2C_HandleTypeDef * hi2c)
 {
     // once transfer completes, reset DMA busy bit for OLED
     for (uint8_t i = 0; i < ssd1306_device_cnt; i++)
@@ -57,6 +58,7 @@ void HAL_I2C_MasterTxCpltCallback(I2C_HandleTypeDef * hi2c)
         // if two OLEDs share one I2C bus, only one of them has DMA active at any time
         // CAUTION: this logic will successfully find the right OLED, but nothing is preventing from two OLEDs on the same bus from trying to start
         // one transaction while another one from a different OLED is running
+        // perhaps add some logic to prevent that?
         if (oled->hi2c == hi2c && oled->dma_busy == SSD1306_DMA_BUSY)
         {
             oled->dma_busy = SSD1306_DMA_OK;

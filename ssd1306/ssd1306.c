@@ -267,6 +267,13 @@ status_t ssd1306_update(ssd1306_handle_t * holed)
     return ssd1306_write(holed, holed->tx_buff, frame_size + cursor_cmd_size);
 }
 
+status_t ssd1306_callback(I2C_HandleTypeDef * hi2c)
+{
+    i2c_dma_callback(hi2c);
+
+    return STATUS_OK;
+}
+
 /********************************************** OLED Helper Functions *******************************************/
 static status_t ssd1306_write_buff_bit(ssd1306_handle_t * holed, uint8_t x_new, uint8_t y_new, uint8_t offset, ssd1306_pix_color_t color)
 {

@@ -25,7 +25,7 @@ BinPackArguments: false
 BinPackParameters: false
 
 # Struct / array initializers
-Cpp11BracedListStyle: true
+Cpp11BracedListStyle: Block
 BinPackLongBracedList: false
 
 AlignConsecutiveAssignments:

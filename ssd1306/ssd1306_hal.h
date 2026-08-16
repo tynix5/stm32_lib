@@ -2,7 +2,7 @@
 #define SSD1306_HAL_H_
 
 #include "ssd1306.h"
-#include "error_types.h"
+#include "generic_types.h"
 
 #define I2C_TIMEOUT_MS      25
 #define I2C_LONG_TIMEOUT_MS 250

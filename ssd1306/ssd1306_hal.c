@@ -13,7 +13,7 @@ status_t ssd1306_write(ssd1306_handle_t * holed, uint8_t * data, uint32_t len)
     else if (holed->mode == SSD1306_PHY_MODE_DMA)
         return i2c_write_dma(holed, data, len);
 
-    return STATUS_INVALID_CFG;
+    return STATUS_INVALID;
 }
 
 status_t i2c_write_dma(ssd1306_handle_t * holed, uint8_t * data, uint32_t len)

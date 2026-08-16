@@ -2,7 +2,7 @@
 #define SSD1306_H_
 
 #include "stm32l4xx_hal.h"
-#include "error_types.h"
+#include "generic_types.h"
 #include <stdint.h>
 
 /*************************** Registers + Commands ********************************/

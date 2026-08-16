@@ -47,7 +47,7 @@ status_t ssd1306_clear_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y)
 status_t ssd1306_draw_line(ssd1306_handle_t * holed, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
 {
     if (x0 > holed->res_x - 1 || x1 > holed->res_x - 1 || y0 > holed->res_y - 1 || y1 > holed->res_y - 1)
-        return STATUS_INVALID_CFG;
+        return STATUS_INVALID;
 
     uint8_t x_start = x0, y_start = y0;
     uint8_t x_end = x1, y_end = y1;
@@ -94,7 +94,7 @@ status_t ssd1306_draw_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8
 {
     // (x, y) is top left corner of rectangle
     if (x > holed->res_x - 1 || y > holed->res_y - 1 || x + w > holed->res_x - 1 || y + h > holed->res_y - 1)
-        return STATUS_INVALID_CFG;
+        return STATUS_INVALID;
 
     uint8_t x_new, y_new, offset;
 
@@ -121,7 +121,7 @@ status_t ssd1306_draw_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8
 status_t ssd1306_draw_filled_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 {
     if (x > holed->res_x - 1 || y > holed->res_y - 1 || x + w > holed->res_x - 1 || y + h > holed->res_y - 1)
-        return STATUS_INVALID_CFG;
+        return STATUS_INVALID;
 
     for (uint8_t i = 0; i < w; i++)
     {
@@ -140,7 +140,7 @@ status_t ssd1306_draw_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uin
 {
     // (x, y) is center of circle
     if (x > holed->res_x - 1 || x + r > holed->res_x - 1 || y > holed->res_y - 1 || y + r > holed->res_y - 1)
-        return STATUS_INVALID_CFG;
+        return STATUS_INVALID;
 
     for (uint8_t curr_x = x - r; curr_x <= x + r; curr_x++)
     {
@@ -162,7 +162,7 @@ status_t ssd1306_draw_filled_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t
 {
     // (x, y) is center of circle
     if (x > holed->res_x - 1 || x + r > holed->res_x - 1 || y > holed->res_y - 1 || y + r > holed->res_y - 1)
-        return STATUS_INVALID_CFG;
+        return STATUS_INVALID;
 
     for (uint8_t curr_x = x - r; curr_x <= x + r; curr_x++)
     {
@@ -184,7 +184,7 @@ status_t ssd1306_draw_filled_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t
 status_t ssd1306_write_ch(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char ch)
 {
     if (x + FONT_WIDTH > holed->res_x - 1 || y + FONT_HEIGHT > holed->res_y - 1)
-        return STATUS_INVALID_CFG;
+        return STATUS_INVALID;
 
     const uint8_t * bitmap = (uint8_t *)font8x8_basic[(uint8_t)ch];
 
@@ -218,7 +218,7 @@ status_t ssd1306_write_str(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char 
 status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t bitmap[], uint8_t size_x, uint8_t size_y)
 {
     if (x + size_x > holed->res_x - 1 || y + size_y > holed->res_y - 1)
-        return STATUS_INVALID_CFG;
+        return STATUS_INVALID;
 
     for (uint8_t i = 0; i < size_x; i++)
     {

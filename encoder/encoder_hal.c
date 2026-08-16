@@ -25,11 +25,13 @@ void encoder_detect_event(encoder_handle_t * henc, encoder_event_t * enc_event, 
 
 encoder_event_t encoder_detect_poll(encoder_handle_t * henc)
 {
+    // not available yet
     return ENCODER_EVENT_NONE;
 }
 
 encoder_event_t encoder_detect_exti(encoder_handle_t * henc)
 {
+    // not available yet
     return ENCODER_EVENT_NONE;
 }
 

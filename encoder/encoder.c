@@ -21,7 +21,7 @@ status_t encoder_init(encoder_handle_t * henc)
 status_t encoder_constrain(encoder_handle_t * henc, int32_t min, int32_t max)
 {
     if (max <= min)
-        return STATUS_INVALID_CFG;
+        return STATUS_INVALID;
 
     henc->position_max = max;
     henc->position_min = min;
@@ -32,7 +32,7 @@ status_t encoder_constrain(encoder_handle_t * henc, int32_t min, int32_t max)
 status_t encoder_set_pos_mode(encoder_handle_t * henc, encoder_pos_mode_t pos_mode)
 {
     if (pos_mode != ENCODER_POS_CLAMP && pos_mode != ENCODER_POS_WRAP)
-        return STATUS_INVALID_CFG;
+        return STATUS_INVALID;
 
     henc->pos_mode = pos_mode;
 
@@ -136,14 +136,12 @@ status_t encoder_update(encoder_handle_t * henc)
 status_t encoder_register_callback(encoder_handle_t * henc, encoder_callback_t callback)
 {
     henc->callback = callback;
-
     return STATUS_OK;
 }
 
 status_t encoder_register_sw_callback(encoder_handle_t * henc, encoder_callback_t callback)
 {
     henc->sw_callback = callback;
-
     return STATUS_OK;
 }
 

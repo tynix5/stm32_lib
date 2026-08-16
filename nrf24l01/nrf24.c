@@ -1,6 +1,6 @@
 
 #include "nrf24.h"
-#include "error_types.h"
+#include "generic_types.h"
 
 #ifdef STM32L432xx
 #include "stm32l4xx_hal.h"
@@ -9,17 +9,17 @@
 #endif
 
 /**************************************** Helper Functions *******************************************/
-static void rf_set_irq(RadioParams * radio);
+static void rf_set_irq(nrf_handle_t * radio);
 /*****************************************************************************************************/
 
 /**************************************** SPI Wrapper Functions **************************************/
-static void rf_disable(RadioParams * radio);
-static void rf_enable(RadioParams * radio);
-static void rf_spi_transmit(RadioParams * radio, uint8_t * data, uint8_t len);
-static void rf_spi_transmit_receive(RadioParams * radio, uint8_t * src, uint8_t * dest, uint8_t len);
+static void rf_disable(nrf_handle_t * radio);
+static void rf_enable(nrf_handle_t * radio);
+static void rf_spi_transmit(nrf_handle_t * radio, uint8_t * data, uint8_t len);
+static void rf_spi_transmit_receive(nrf_handle_t * radio, uint8_t * src, uint8_t * dest, uint8_t len);
 /*****************************************************************************************************/
 
-ErrorRF rf_init(RadioParams * radio)
+nrf_status_t rf_init(nrf_handle_t * radio)
 {
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
     rf_disable(radio);
@@ -29,7 +29,7 @@ ErrorRF rf_init(RadioParams * radio)
 
     // PWR_UP = 1, wait >1.5ms for start-up
     rf_disable(radio);
-    uint8_t pwr_up[2] = {NRF_REG_CONFIG | NRF_W_REGISTER, NRF_BIT_PWR_UP | NRF_BIT_EN_CRC};
+    uint8_t pwr_up[2] = { NRF_REG_CONFIG | NRF_W_REGISTER, NRF_BIT_PWR_UP | NRF_BIT_EN_CRC };
     rf_spi_transmit(radio, pwr_up, 2);
     radio->delay_ms(2);
 
@@ -39,33 +39,25 @@ ErrorRF rf_init(RadioParams * radio)
     rf_set_data_rate(radio, radio->data_rate);
     rf_set_retransmit(radio, NRF_RETRY_DELAY_1000, NRF_RETRY_CNT_3);
 
-    uint8_t setup_aw[2] = {NRF_REG_SETUP_AW | NRF_W_REGISTER, NRF_BIT_AW_5}; // 5 address bytes --> defined from TX_ADDR
+    uint8_t setup_aw[2] = { NRF_REG_SETUP_AW | NRF_W_REGISTER, NRF_BIT_AW_5 }; // 5 address bytes --> defined from TX_ADDR
     rf_spi_transmit(radio, setup_aw, 2);
 
     // TX address is address of receiving node
-    uint8_t tx_addr[6] = {NRF_REG_TX_ADDR | NRF_W_REGISTER,
-                          (uint8_t)radio->node_addr,
-                          (uint8_t)(radio->node_addr >> 8),
-                          (uint8_t)(radio->node_addr >> 16),
-                          (uint8_t)(radio->node_addr >> 24),
-                          (uint8_t)(radio->node_addr >> 32)};
+    uint8_t tx_addr[6] = { NRF_REG_TX_ADDR | NRF_W_REGISTER,  (uint8_t)radio->node_addr,         (uint8_t)(radio->node_addr >> 8),
+                           (uint8_t)(radio->node_addr >> 16), (uint8_t)(radio->node_addr >> 24), (uint8_t)(radio->node_addr >> 32) };
     rf_spi_transmit(radio, tx_addr, 6);
 
     // enable date pipe 0 by default
-    uint8_t pipe0[2] = {NRF_REG_EN_RXADDR | NRF_W_REGISTER, NRF_BIT_ERX_P0};
+    uint8_t pipe0[2] = { NRF_REG_EN_RXADDR | NRF_W_REGISTER, NRF_BIT_ERX_P0 };
     rf_spi_transmit(radio, pipe0, 2);
 
     // set receive address data pipe 0
-    uint8_t rx_addr[6] = {NRF_REG_RX_ADDR_P0 | NRF_W_REGISTER,
-                          (uint8_t)radio->this_addr,
-                          (uint8_t)(radio->this_addr >> 8),
-                          (uint8_t)(radio->this_addr >> 16),
-                          (uint8_t)(radio->this_addr >> 24),
-                          (uint8_t)(radio->this_addr >> 32)};
+    uint8_t rx_addr[6] = { NRF_REG_RX_ADDR_P0 | NRF_W_REGISTER, (uint8_t)radio->this_addr,         (uint8_t)(radio->this_addr >> 8),
+                           (uint8_t)(radio->this_addr >> 16),   (uint8_t)(radio->this_addr >> 24), (uint8_t)(radio->this_addr >> 32) };
     rf_spi_transmit(radio, rx_addr, 6);
 
     // enable writes to any special function register
-    uint8_t activate[2] = {NRF_ACTIVATE, 0x73};
+    uint8_t activate[2] = { NRF_ACTIVATE, 0x73 };
     rf_spi_transmit(radio, activate, 2);
 
     uint8_t curr_features = 0;
@@ -73,11 +65,11 @@ ErrorRF rf_init(RadioParams * radio)
     if (radio->payload_type == NRF_PAYLOAD_DYNAMIC)
     {
         // enable dynamic payload length for pipe 0
-        uint8_t en_dp[2] = {NRF_REG_DYNPD | NRF_W_REGISTER, NRF_BIT_DPL_P0};
+        uint8_t en_dp[2] = { NRF_REG_DYNPD | NRF_W_REGISTER, NRF_BIT_DPL_P0 };
         rf_spi_transmit(radio, en_dp, 2);
 
         // enable auto-acknowledgement for pipe 0 (required for dynamic payload length)
-        uint8_t en_aa[2] = {NRF_REG_EN_AA | NRF_W_REGISTER, NRF_BIT_ENAA_P0};
+        uint8_t en_aa[2] = { NRF_REG_EN_AA | NRF_W_REGISTER, NRF_BIT_ENAA_P0 };
         rf_spi_transmit(radio, en_aa, 2);
 
         curr_features |= NRF_BIT_EN_DPL;
@@ -85,18 +77,18 @@ ErrorRF rf_init(RadioParams * radio)
     else
     {
         // disable dynamic payload lengths
-        uint8_t en_dp[2] = {NRF_REG_DYNPD | NRF_W_REGISTER, 0};
+        uint8_t en_dp[2] = { NRF_REG_DYNPD | NRF_W_REGISTER, 0 };
         rf_spi_transmit(radio, en_dp, 2);
 
         // set static payload lengths
-        uint8_t payload_lengths[2] = {NRF_REG_RX_PW_P0 | NRF_W_REGISTER, radio->payload_length};
+        uint8_t payload_lengths[2] = { NRF_REG_RX_PW_P0 | NRF_W_REGISTER, radio->payload_length };
         rf_spi_transmit(radio, payload_lengths, 2);
     }
 
     if (radio->ack == FEAT_ENABLE)
     {
         // enable auto-acknowledgement for pipe 0 (required for dynamic payload length)
-        uint8_t en_aa[2] = {NRF_REG_EN_AA | NRF_W_REGISTER, NRF_BIT_ENAA_P0};
+        uint8_t en_aa[2] = { NRF_REG_EN_AA | NRF_W_REGISTER, NRF_BIT_ENAA_P0 };
         rf_spi_transmit(radio, en_aa, 2);
 
         // enable acknowledgement payloads
@@ -107,7 +99,7 @@ ErrorRF rf_init(RadioParams * radio)
         if (radio->payload_type == NRF_PAYLOAD_STATIC)
         {
             // disable auto-acknowledgements when using static payload and disabled acks
-            uint8_t disable_aa[2] = {NRF_REG_EN_AA | NRF_W_REGISTER, 0};
+            uint8_t disable_aa[2] = { NRF_REG_EN_AA | NRF_W_REGISTER, 0 };
             rf_spi_transmit(radio, disable_aa, 2);
         }
 
@@ -115,7 +107,7 @@ ErrorRF rf_init(RadioParams * radio)
     }
 
     // using ACK is determined by using W_TX_PAYLOAD_NOACK or W_TX_PAYLOAD
-    uint8_t feature[2] = {NRF_REG_FEATURE | NRF_W_REGISTER, curr_features};
+    uint8_t feature[2] = { NRF_REG_FEATURE | NRF_W_REGISTER, curr_features };
     rf_spi_transmit(radio, feature, 2);
 
     rf_set_irq(radio);
@@ -127,14 +119,14 @@ ErrorRF rf_init(RadioParams * radio)
     return RF_SUCCESS;
 }
 
-ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen)
+nrf_status_t rf_send(nrf_handle_t * radio, uint8_t * packet, uint8_t plen, uint8_t * ack, uint8_t * alen)
 {
     if (plen > MAX_PKT_SIZE)
         return RF_INVALID_CONFIG;
 
     // ensure mode is in standby before placing in tx mode
     rf_disable(radio);
-    uint8_t pwr_up[2] = {NRF_REG_CONFIG | NRF_W_REGISTER, NRF_BIT_PWR_UP | NRF_BIT_EN_CRC};
+    uint8_t pwr_up[2] = { NRF_REG_CONFIG | NRF_W_REGISTER, NRF_BIT_PWR_UP | NRF_BIT_EN_CRC };
     rf_spi_transmit(radio, pwr_up, 2);
 
     // write data to TX buffer
@@ -161,7 +153,7 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
         // if maximum retries have happened, flush FIFO and clear flag
         if (status & NRF_BIT_MAX_RT && radio->ack == FEAT_ENABLE)
         {
-            uint8_t reset_max_rt[2] = {NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_MAX_RT};
+            uint8_t reset_max_rt[2] = { NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_MAX_RT };
             rf_spi_transmit(radio, reset_max_rt, 2);
             rf_flush_tx(radio);
             return RF_MAX_RETRIES;
@@ -173,7 +165,7 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
     }
 
     // clear data sent flag
-    uint8_t clear_ds[2] = {NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_TX_DS};
+    uint8_t clear_ds[2] = { NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_TX_DS };
     rf_spi_transmit(radio, clear_ds, 2);
 
     // only read acknowledgement if enabled
@@ -181,7 +173,7 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
     if (radio->ack == FEAT_ENABLE && rf_read_status(radio) & NRF_BIT_RX_DR)
     {
         // read acknowledgement width
-        uint8_t r_rx_pl[2] = {NRF_R_RX_PL_WID, 0};
+        uint8_t r_rx_pl[2] = { NRF_R_RX_PL_WID, 0 };
         uint8_t ack_width[2];
         rf_spi_transmit_receive(radio, r_rx_pl, ack_width, 2);
         *alen = ack_width[1];
@@ -201,7 +193,7 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
             HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
 
             // clear data ready flag reading acknowledgement
-            uint8_t clear_dr[2] = {NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_RX_DR};
+            uint8_t clear_dr[2] = { NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_RX_DR };
             rf_spi_transmit(radio, clear_dr, 2);
         }
     }
@@ -209,12 +201,12 @@ ErrorRF rf_send(RadioParams * radio, uint8_t * packet, uint8_t plen, uint8_t * a
     return RF_SUCCESS;
 }
 
-ErrorRF rf_listen(RadioParams * radio, uint32_t timeout)
+nrf_status_t rf_listen(nrf_handle_t * radio, uint32_t timeout)
 {
     // receiver --> PRIM_RX = 1, CE = 1
     rf_disable(radio);
 
-    uint8_t en_rx[2] = {NRF_REG_CONFIG | NRF_W_REGISTER, NRF_BIT_PWR_UP | NRF_BIT_PRIM_RX | NRF_BIT_EN_CRC};
+    uint8_t en_rx[2] = { NRF_REG_CONFIG | NRF_W_REGISTER, NRF_BIT_PWR_UP | NRF_BIT_PRIM_RX | NRF_BIT_EN_CRC };
     rf_spi_transmit(radio, en_rx, 2);
 
     rf_enable(radio);
@@ -236,13 +228,13 @@ ErrorRF rf_listen(RadioParams * radio, uint32_t timeout)
     return RF_TIMEOUT;
 }
 
-ErrorRF rf_listen_it(RadioParams * radio)
+nrf_status_t rf_listen_it(nrf_handle_t * radio)
 {
     // move to receiver mode and then exit (waiting for pin interrupts)
     // receiver --> PRIM_RX = 1, CE = 1
     rf_disable(radio);
 
-    uint8_t en_rx[2] = {NRF_REG_CONFIG | NRF_W_REGISTER, NRF_BIT_PWR_UP | NRF_BIT_PRIM_RX | NRF_BIT_EN_CRC};
+    uint8_t en_rx[2] = { NRF_REG_CONFIG | NRF_W_REGISTER, NRF_BIT_PWR_UP | NRF_BIT_PRIM_RX | NRF_BIT_EN_CRC };
     rf_spi_transmit(radio, en_rx, 2);
 
     rf_enable(radio);
@@ -250,12 +242,12 @@ ErrorRF rf_listen_it(RadioParams * radio)
     return RF_SUCCESS;
 }
 
-ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_t * ack, uint8_t alen)
+nrf_status_t rf_receive(nrf_handle_t * radio, uint8_t * packet, uint8_t * plen, uint8_t * ack, uint8_t alen)
 {
     // get packet width
     if (radio->payload_type == NRF_PAYLOAD_DYNAMIC)
     {
-        uint8_t rx_pl[2] = {NRF_R_RX_PL_WID, 0};
+        uint8_t rx_pl[2] = { NRF_R_RX_PL_WID, 0 };
         uint8_t width[2];
         rf_spi_transmit_receive(radio, rx_pl, width, 2);
         *plen = width[1];
@@ -296,59 +288,59 @@ ErrorRF rf_receive(RadioParams * radio, uint8_t * packet, uint8_t * plen, uint8_
     }
 
     // clear data ready flag after reading packet and loading acks
-    uint8_t clear_dr[2] = {NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_RX_DR | NRF_BIT_TX_DS | NRF_BIT_MAX_RT};
+    uint8_t clear_dr[2] = { NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_RX_DR | NRF_BIT_TX_DS | NRF_BIT_MAX_RT };
     rf_spi_transmit(radio, clear_dr, 2);
 
     return RF_SUCCESS;
 }
 
-void rf_set_retransmit(RadioParams * radio, NrfRetryDelay delay, NrfRetryCnt count)
+void rf_set_retransmit(nrf_handle_t * radio, nrf_retry_delay_t delay, nrf_retry_cnt_t count)
 {
-    uint8_t setup_retr[2] = {NRF_REG_SETUP_RETR | NRF_W_REGISTER, ((delay & 0x0f) << 4) | (count & 0x0f)};
+    uint8_t setup_retr[2] = { NRF_REG_SETUP_RETR | NRF_W_REGISTER, ((delay & 0x0f) << 4) | (count & 0x0f) };
     rf_spi_transmit(radio, setup_retr, 2);
 }
 
-void rf_set_channel(RadioParams * radio, uint8_t ch)
+void rf_set_channel(nrf_handle_t * radio, uint8_t ch)
 {
-    uint8_t rf_ch[2] = {NRF_REG_RF_CH | NRF_W_REGISTER, ch & 0x7f};
+    uint8_t rf_ch[2] = { NRF_REG_RF_CH | NRF_W_REGISTER, ch & 0x7f };
     rf_spi_transmit(radio, rf_ch, 2);
 }
 
-void rf_set_data_rate(RadioParams * radio, NrfDataRate rate)
+void rf_set_data_rate(nrf_handle_t * radio, nrf_datarate_t rate)
 {
     // read current power configurations and keep them
-    uint8_t rf_setup[2] = {NRF_REG_RF_SETUP, 0};
+    uint8_t rf_setup[2] = { NRF_REG_RF_SETUP, 0 };
     uint8_t curr_pwr[2];
     rf_spi_transmit_receive(radio, rf_setup, curr_pwr, 2);
 
-    uint8_t data_rate[2] = {NRF_REG_RF_SETUP | NRF_W_REGISTER, (curr_pwr[1] & 0xf7) | (rate << NRF_BIT_RF_DR_SHIFT)};
+    uint8_t data_rate[2] = { NRF_REG_RF_SETUP | NRF_W_REGISTER, (curr_pwr[1] & 0xf7) | (rate << NRF_BIT_RF_DR_SHIFT) };
     rf_spi_transmit(radio, data_rate, 2);
 }
 
-void rf_set_power_level(RadioParams * radio, NrfPower power)
+void rf_set_power_level(nrf_handle_t * radio, nrf_power_t power)
 {
     // read current data rate configurations and keep them
-    uint8_t rf_setup[2] = {NRF_REG_RF_SETUP, 0};
+    uint8_t rf_setup[2] = { NRF_REG_RF_SETUP, 0 };
     uint8_t curr_data_rate[2];
     rf_spi_transmit_receive(radio, rf_setup, curr_data_rate, 2);
 
-    uint8_t power_level[2] = {NRF_REG_RF_SETUP | NRF_W_REGISTER, (curr_data_rate[1] & 0xf9) | (power << NRF_BIT_RF_PWR_SHIFT)};
+    uint8_t power_level[2] = { NRF_REG_RF_SETUP | NRF_W_REGISTER, (curr_data_rate[1] & 0xf9) | (power << NRF_BIT_RF_PWR_SHIFT) };
     rf_spi_transmit(radio, power_level, 2);
 }
 
-void rf_flush_rx(RadioParams * radio)
+void rf_flush_rx(nrf_handle_t * radio)
 {
     uint8_t flush_rx = NRF_FLUSH_RX;
     rf_spi_transmit(radio, &flush_rx, 1);
 }
 
-void rf_flush_tx(RadioParams * radio)
+void rf_flush_tx(nrf_handle_t * radio)
 {
     uint8_t flush_tx = NRF_FLUSH_TX;
     rf_spi_transmit(radio, &flush_tx, 1);
 }
 
-uint8_t rf_read_status(RadioParams * radio)
+uint8_t rf_read_status(nrf_handle_t * radio)
 {
     uint8_t nop = NRF_NOP;
     uint8_t status;
@@ -360,18 +352,18 @@ uint8_t rf_read_status(RadioParams * radio)
     return status;
 }
 
-void rf_clear_status(RadioParams * radio)
+void rf_clear_status(nrf_handle_t * radio)
 {
-    uint8_t cmd[2] = {NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_RX_DR | NRF_BIT_TX_DS | NRF_BIT_MAX_RT};
+    uint8_t cmd[2] = { NRF_REG_STATUS | NRF_W_REGISTER, NRF_BIT_RX_DR | NRF_BIT_TX_DS | NRF_BIT_MAX_RT };
 
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(radio->hspi, cmd, 2, SPI_TIMEOUT_MS);
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
 }
 
-uint8_t rf_carrier_detect(RadioParams * radio)
+uint8_t rf_carrier_detect(nrf_handle_t * radio)
 {
-    uint8_t cmd[2] = {NRF_REG_CD, 0};
+    uint8_t cmd[2] = { NRF_REG_CD, 0 };
     uint8_t cd[2];
 
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
@@ -382,10 +374,10 @@ uint8_t rf_carrier_detect(RadioParams * radio)
 }
 
 /**************************************** Helper Functions *******************************************/
-static void rf_set_irq(RadioParams * radio)
+static void rf_set_irq(nrf_handle_t * radio)
 {
     // do not modify other bits in NRF_REG_CONFIG register
-    uint8_t cmd[2] = {NRF_REG_CONFIG, 0};
+    uint8_t cmd[2] = { NRF_REG_CONFIG, 0 };
     uint8_t data[2];
 
     rf_spi_transmit_receive(radio, cmd, data, 2);
@@ -394,15 +386,15 @@ static void rf_set_irq(RadioParams * radio)
     config |= NRF_BIT_MASK_RX_DR | NRF_BIT_MASK_TX_DS | NRF_BIT_MASK_MAX_RT; // disable all interrupts to start
 
     // enable selected interrupts
-    if (radio->RadioIrqs.rx_dr == FEAT_ENABLE)
+    if (radio->nrf_irqs_t.rx_dr == FEAT_ENABLE)
     {
         config &= ~NRF_BIT_MASK_RX_DR;
     }
-    if (radio->RadioIrqs.tx_ds == FEAT_ENABLE)
+    if (radio->nrf_irqs_t.tx_ds == FEAT_ENABLE)
     {
         config &= ~NRF_BIT_MASK_TX_DS;
     }
-    if (radio->RadioIrqs.max_rt == FEAT_ENABLE)
+    if (radio->nrf_irqs_t.max_rt == FEAT_ENABLE)
     {
         config &= ~NRF_BIT_MASK_MAX_RT;
     }
@@ -414,24 +406,24 @@ static void rf_set_irq(RadioParams * radio)
 /*****************************************************************************************************/
 
 /**************************************** SPI Wrapper Functions **************************************/
-static void rf_disable(RadioParams * radio)
+static void rf_disable(nrf_handle_t * radio)
 {
     HAL_GPIO_WritePin(radio->ce_gpio, radio->ce_pin, GPIO_PIN_RESET);
 }
 
-static void rf_enable(RadioParams * radio)
+static void rf_enable(nrf_handle_t * radio)
 {
     HAL_GPIO_WritePin(radio->ce_gpio, radio->ce_pin, GPIO_PIN_SET);
 }
 
-static void rf_spi_transmit(RadioParams * radio, uint8_t * data, uint8_t len)
+static void rf_spi_transmit(nrf_handle_t * radio, uint8_t * data, uint8_t len)
 {
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
     HAL_SPI_Transmit(radio->hspi, data, len, SPI_TIMEOUT_MS);
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
 }
 
-static void rf_spi_transmit_receive(RadioParams * radio, uint8_t * src, uint8_t * dest, uint8_t len)
+static void rf_spi_transmit_receive(nrf_handle_t * radio, uint8_t * src, uint8_t * dest, uint8_t len)
 {
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
     HAL_SPI_TransmitReceive(radio->hspi, src, dest, len, SPI_TIMEOUT_MS);

@@ -140,6 +140,7 @@ nrf_status_t rf_send(nrf_handle_t * radio, uint8_t * packet, uint8_t plen, uint8
     HAL_SPI_Transmit(radio->hspi, packet, plen, SPI_TIMEOUT_MS);
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
 
+    // modify this to use lower on time for transmitter
     // transmitter --> PRIM_RX = 0, CE = 1 for >10us and <4ms and TX FIFO not empty
     rf_enable(radio);
     radio->delay_ms(1);

@@ -10,6 +10,10 @@ typedef struct
     float q4; // imag, k
 } quaternion_t;
 
+/* Copy elements of quaternion */
+void quat_copy(quaternion_t q_src, quaternion_t * q_dest);
+/* Conjugate quaternion */
+void quat_conjugate(quaternion_t * q);
 /* Scale all elements in quaternion */
 void quat_mult_scalar(quaternion_t * q, float k);
 /* Hamiltonian multiply two quaternions */

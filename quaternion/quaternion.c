@@ -1,6 +1,22 @@
 #include "quaternion.h"
 #include <math.h>
 
+void quat_copy(quaternion_t q_src, quaternion_t * q_dest)
+{
+    q_dest->q1 = q_src.q1;
+    q_dest->q2 = q_src.q2;
+    q_dest->q3 = q_src.q3;
+    q_dest->q4 = q_src.q4;
+}
+
+void quat_conjugate(quaternion_t * q)
+{
+    q->q1 = q->q1;
+    q->q2 = -q->q2;
+    q->q3 = -q->q3;
+    q->q4 = -q->q4;
+}
+
 void quat_mult_scalar(quaternion_t * q, float k)
 {
     q->q1 = q->q1 * k;

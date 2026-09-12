@@ -58,7 +58,7 @@ typedef struct
 
 } encoder_state_t;
 
-typedef void (*encoder_callback_t)(encoder_handle_t *, encoder_event_t);
+typedef void (*encoder_callback_t)(encoder_handle_t *, encoder_event_t, encoder_event_t);
 
 typedef struct encoder_handle_t
 {
@@ -75,17 +75,14 @@ typedef struct encoder_handle_t
     encoder_mode_t mode;
     TIM_HandleTypeDef * htim;
 
-    // "private" members (move into a constraints struct?)
-    int32_t position_max;
-    int32_t position_min;
-    encoder_pos_mode_t pos_mode;
-
-    encoder_callback_t callback;
-    encoder_callback_t sw_callback;
-
-    encoder_state_t state;
-
     uint32_t t_update;
+
+    // private members
+    int32_t _position_max;
+    int32_t _position_min;
+    encoder_pos_mode_t _pos_mode;
+    encoder_callback_t _callback;
+    encoder_state_t _state;
 
 } encoder_handle_t;
 
@@ -104,10 +101,8 @@ status_t encoder_start(encoder_handle_t * henc);
 status_t encoder_stop(encoder_handle_t * henc);
 /* Detect if any movements were made or button has been accessed */
 status_t encoder_update(encoder_handle_t * henc);
-/* Register callback function for encoder movement */
+/* Register callback function for encoder movement and switch state */
 status_t encoder_register_callback(encoder_handle_t * henc, encoder_callback_t callback);
-/* Register callback function for switch behavior */
-status_t encoder_register_sw_callback(encoder_handle_t * henc, encoder_callback_t callback);
 /* Get current position from internal structure */
 int32_t encoder_get_position(encoder_handle_t * henc);
 

@@ -4,16 +4,16 @@
 
 status_t encoder_init(encoder_handle_t * henc)
 {
-    // set defaults for these
-    henc->state.sw = henc->state.prev_sw = ENCODER_SW_RELEASE;
-    henc->state.position = henc->state.prev_position = 0;
-    henc->state.velocity = 0;
-    henc->state.direction = ENCODER_DIR_NONE;
-    henc->state.ticks = henc->state.prev_ticks = ENCODER_SW_RELEASE;
-    henc->state.prev_update = 0;
-    henc->pos_mode = ENCODER_POS_CLAMP;
-    henc->position_max = LONG_MAX;
-    henc->position_min = LONG_MIN;
+    // set defaults for private members
+    henc->_state.sw = henc->_state.prev_sw = ENCODER_SW_RELEASE;
+    henc->_state.position = henc->_state.prev_position = 0;
+    henc->_state.velocity = 0;
+    henc->_state.direction = ENCODER_DIR_NONE;
+    henc->_state.ticks = henc->_state.prev_ticks = ENCODER_SW_RELEASE;
+    henc->_state.prev_update = 0;
+    henc->_pos_mode = ENCODER_POS_CLAMP;
+    henc->_position_max = LONG_MAX;
+    henc->_position_min = LONG_MIN;
 
     return STATUS_OK;
 }
@@ -23,8 +23,8 @@ status_t encoder_constrain(encoder_handle_t * henc, int32_t min, int32_t max)
     if (max <= min)
         return STATUS_INVALID;
 
-    henc->position_max = max;
-    henc->position_min = min;
+    henc->_position_max = max;
+    henc->_position_min = min;
 
     return STATUS_OK;
 }
@@ -34,7 +34,7 @@ status_t encoder_set_pos_mode(encoder_handle_t * henc, encoder_pos_mode_t pos_mo
     if (pos_mode != ENCODER_POS_CLAMP && pos_mode != ENCODER_POS_WRAP)
         return STATUS_INVALID;
 
-    henc->pos_mode = pos_mode;
+    henc->_pos_mode = pos_mode;
 
     return STATUS_OK;
 }
@@ -51,67 +51,67 @@ status_t encoder_update(encoder_handle_t * henc)
 
     case ENCODER_EVENT_CW_TURN:
 
-        if (henc->pos_mode == ENCODER_POS_CLAMP)
+        if (henc->_pos_mode == ENCODER_POS_CLAMP)
         {
-            if (henc->state.position < henc->position_max)
-                (henc->state.position)++;
+            if (henc->_state.position < henc->_position_max)
+                (henc->_state.position)++;
             /*
-            int32_t new_pos = henc->state.position + henc->state.delta_ticks / 2; // configure for different encoders
+            int32_t new_pos = henc->_state.position + henc->_state.delta_ticks / 2; // configure for different encoders
 
-            if (new_pos > henc->position_max)
-                henc->state.position = henc->position_max;
+            if (new_pos > henc->_position_max)
+                henc->_state.position = henc->_position_max;
             else
-                henc->state.position = new_pos;
+                henc->_state.position = new_pos;
             */
         }
-        else if (henc->pos_mode == ENCODER_POS_WRAP)
+        else if (henc->_pos_mode == ENCODER_POS_WRAP)
         {
-            if (++(henc->state.position) > henc->position_max)
-                henc->state.position = henc->position_min;
+            if (++(henc->_state.position) > henc->_position_max)
+                henc->_state.position = henc->_position_min;
             /*
-            uint32_t rotations = henc->state.delta_ticks / 2;
-            uint32_t range = henc->position_max - henc->position_min + 1;
-            int32_t new_pos = henc->state.position + rotations;
+            uint32_t rotations = henc->_state.delta_ticks / 2;
+            uint32_t range = henc->_position_max - henc->_position_min + 1;
+            int32_t new_pos = henc->_state.position + rotations;
 
-            if (new_pos > henc->position_max)
-                henc->state.position = ((henc->state.position - henc->position_min + rotations) % range + range) % range + henc->position_min;
+            if (new_pos > henc->_position_max)
+                henc->_state.position = ((henc->_state.position - henc->_position_min + rotations) % range + range) % range + henc->_position_min;
             else
-                henc->state.position = new_pos;
+                henc->_state.position = new_pos;
             */
         }
-        // henc->callback(henc, enc_event);
+        // henc->_callback(henc, enc_event);
         break;
 
     case ENCODER_EVENT_CCW_TURN:
-        if (henc->pos_mode == ENCODER_POS_CLAMP)
+        if (henc->_pos_mode == ENCODER_POS_CLAMP)
         {
-            if (henc->state.position > henc->position_min)
-                (henc->state.position)--;
+            if (henc->_state.position > henc->_position_min)
+                (henc->_state.position)--;
             /*
-            int32_t new_pos = henc->state.position - henc->state.delta_ticks / 2; // configure for different encoders
+            int32_t new_pos = henc->_state.position - henc->_state.delta_ticks / 2; // configure for different encoders
 
-            if (new_pos < henc->position_min)
-                henc->state.position = henc->position_min;
+            if (new_pos < henc->_position_min)
+                henc->_state.position = henc->_position_min;
             else
-                henc->state.position = new_pos;
+                henc->_state.position = new_pos;
             */
         }
-        else if (henc->pos_mode == ENCODER_POS_WRAP)
+        else if (henc->_pos_mode == ENCODER_POS_WRAP)
         {
-            if (--(henc->state.position) < henc->position_min)
-                henc->state.position = henc->position_max;
+            if (--(henc->_state.position) < henc->_position_min)
+                henc->_state.position = henc->_position_max;
             /*
-            uint32_t rotations = henc->state.delta_ticks / 2;
-            uint32_t range = henc->position_max - henc->position_min + 1;
-            int32_t new_pos = henc->state.position + rotations;
+            uint32_t rotations = henc->_state.delta_ticks / 2;
+            uint32_t range = henc->_position_max - henc->_position_min + 1;
+            int32_t new_pos = henc->_state.position + rotations;
 
-            if (new_pos < henc->position_min)
-                henc->state.position = ((henc->state.position - henc->position_min + rotations) % range + range) % range + henc->position_min;
+            if (new_pos < henc->_position_min)
+                henc->_state.position = ((henc->_state.position - henc->_position_min + rotations) % range + range) % range + henc->_position_min;
             else
-                henc->state.position = new_pos;
+                henc->_state.position = new_pos;
             */
         }
-        // henc->callback(henc, enc_event);
+        // henc->_callback(henc, enc_event);
         break;
     default:
     }
@@ -119,33 +119,23 @@ status_t encoder_update(encoder_handle_t * henc)
     switch (sw_event)
     {
     case ENCODER_EVENT_NONE:
-        break;
     case ENCODER_EVENT_CW_TURN:
-        break;
     case ENCODER_EVENT_CCW_TURN:
-        break;
     default:
     }
 
-    henc->callback(henc, enc_event);
-    henc->sw_callback(henc, sw_event);
+    henc->_callback(henc, enc_event, sw_event);
 
     return STATUS_OK;
 }
 
 status_t encoder_register_callback(encoder_handle_t * henc, encoder_callback_t callback)
 {
-    henc->callback = callback;
-    return STATUS_OK;
-}
-
-status_t encoder_register_sw_callback(encoder_handle_t * henc, encoder_callback_t callback)
-{
-    henc->sw_callback = callback;
+    henc->_callback = callback;
     return STATUS_OK;
 }
 
 int32_t encoder_get_position(encoder_handle_t * henc)
 {
-    return henc->state.position;
+    return henc->_state.position;
 }

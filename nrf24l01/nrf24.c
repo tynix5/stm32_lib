@@ -143,7 +143,8 @@ nrf_status_t rf_send(nrf_handle_t * radio, uint8_t * packet, uint8_t plen, uint8
     // modify this to use lower on time for transmitter
     // transmitter --> PRIM_RX = 0, CE = 1 for >10us and <4ms and TX FIFO not empty
     rf_enable(radio);
-    radio->delay_ms(1);
+    // radio->delay_ms(1);
+    radio->delay_us(20);
     rf_disable(radio);
 
     // wait for packet to be transmitted and acknowledgement received
@@ -211,7 +212,8 @@ nrf_status_t rf_listen(nrf_handle_t * radio, uint32_t timeout)
     rf_spi_transmit(radio, en_rx, 2);
 
     rf_enable(radio);
-    radio->delay_ms(1); // wait >130us for RX settling
+    // radio->delay_ms(1); // wait >130us for RX settling
+    radio->delay_us(200);
 
     // either poll continuously or wait for IRQ and timeout after certain period of time
     uint32_t ticks = 0;

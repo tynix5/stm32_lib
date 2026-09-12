@@ -8,12 +8,13 @@
 /***************** Generic Types *****************/
 typedef enum
 {
-    STATUS_OK = 0,     // success
-    STATUS_ERR,        // general error case, try to avoid using this
-    STATUS_BUSY,       // peripheral or controller is busy
-    STATUS_TIMEOUT,    // timed out
-    STATUS_INVALID,    // bad configuration
-    STATUS_DISCREPANCY // written value != read value
+    STATUS_OK = 0,      // success
+    STATUS_ERR,         // general error case, try to avoid using this
+    STATUS_BUSY,        // peripheral or controller is busy
+    STATUS_TIMEOUT,     // timed out
+    STATUS_INVALID,     // bad configuration
+    STATUS_DISCREPANCY, // written value != read value
+    STATUS_NULL         // null pointer error
 } status_t;
 
 typedef enum

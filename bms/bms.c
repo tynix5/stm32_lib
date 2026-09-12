@@ -2,82 +2,74 @@
 
 static float map(float x, float in_min, float in_max, float out_min, float out_max);
 
-void bms_init(bms_handle_t * bms)
+status_t bms_init(bms_handle_t * bms, bms_callback_t callback)
 {
+    if (callback == NULL)
+        return STATUS_NULL;
 
+    bms->_callback = callback;
+    return STATUS_OK;
 }
-
-float bms_read_voltage(bms_handle_t * bms, uint16_t raw_adc)
+status_t bms_read_voltage(bms_handle_t * bms, float norm_adc, float * v)
 {
-    float voltage = 0;
-    uint32_t adc_states;
-
-    switch (bms->res)
-    {
-        case BMS_ADC_RES_8BIT:
-            adc_states = 256;
-            break;
-        case BMS_ADC_RES_12BIT:
-        default:
-            adc_states = 4096;
-    }
 
     switch (bms->type)
     {
-        case BMS_LIPO_TYPE:
-            voltage = bms->div * (raw_adc / (float) adc_states) * bms->supply_v;
-            break;
-        default:
+    case BMS_LIPO_TYPE:
+        *v = bms->div * norm_adc * bms->v_ref;
+        break;
+    default:
+        *v = -1.0;
+        return STATUS_INVALID;
     }
 
-    return voltage;
+    return STATUS_OK;
 }
-
-float bms_read_percent(bms_handle_t * bms, uint16_t raw_adc)
+status_t bms_read_percent(bms_handle_t * bms, float norm_adc, float * percent)
 {
-    float voltage = bms_read_voltage(bms, raw_adc);
-    float percent = 0;
+    float v = 0;
+    *percent = 0;
+
+    if (bms_read_voltage(bms, norm_adc, &v) != STATUS_OK)
+        return STATUS_ERR;
 
     switch (bms->type)
     {
-        case BMS_LIPO_TYPE:
-            const float lipo_max = LIPO_CELL_MAX_V * bms->cell_cnt;
-            const float lipo_min = LIPO_CELL_MIN_V * bms->cell_cnt;
-            percent = map(voltage, lipo_min, lipo_max, 0.0, 100.0);
-            break;
-        default:
+    case BMS_LIPO_TYPE:
+        const float lipo_max = LIPO_CELL_MAX_V * bms->cell_cnt;
+        const float lipo_min = LIPO_CELL_MIN_V * bms->cell_cnt;
+        *percent = map(v, lipo_min, lipo_max, 0.0, 100.0);
+        break;
+    default:
+        return STATUS_ERR;
     }
 
-    if (percent > 100.0)
-        percent = 100.0;
-    else if (percent < 0.0)
-        percent = 0.0;
+    if (*percent > 100.0)
+        *percent = 100.0;
+    else if (*percent < 0.0)
+        *percent = 0.0;
 
-    return percent;
+    return STATUS_OK;
 }
 
-float bms_update(bms_handle_t * bms, uint16_t raw_adc)
+status_t bms_update(bms_handle_t * bms, float norm_adc, float * percent)
 {
-    float percent = bms_read_percent(bms, raw_adc);
+    if (bms_read_percent(bms, norm_adc, percent) != STATUS_OK)
+        return STATUS_ERR;
 
-    if (bms->callback == NULL)
-        return 0.0;
+    if (bms->_callback == NULL)
+        return STATUS_NULL;
 
-    if (percent == 100.0)
+    if (*percent == 100.0)
     {
-        bms->callback(bms, BMS_EVENT_CHARGE_FULL);
+        bms->_callback(bms, BMS_EVENT_CHARGE_FULL);
     }
-    else if (percent == 0.0)
+    else if (*percent == 0.0)
     {
-        bms->callback(bms, BMS_EVENT_CHARGE_EMPTY);
+        bms->_callback(bms, BMS_EVENT_CHARGE_EMPTY);
     }
 
-    return percent;
-}
-
-void bms_register_callback(bms_handle_t * bms, bms_callback callback)
-{
-    bms->callback = callback;
+    return STATUS_OK;
 }
 
 static float map(float x, float in_min, float in_max, float out_min, float out_max)

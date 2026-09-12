@@ -129,6 +129,6 @@ status_t ssd1306_write_str(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char 
 status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t bitmap[], uint8_t size_x, uint8_t size_y);
 status_t ssd1306_clear(ssd1306_handle_t * holed);
 status_t ssd1306_update(ssd1306_handle_t * holed);
-status_t ssd1306_callback(I2C_HandleTypeDef * hi2c);
+status_t ssd1306_callback(I2C_HandleTypeDef * hi2c); // place into HAL_I2C_MasterTxCpltCallback()
 
 #endif

@@ -114,8 +114,11 @@ nrf_status_t rf_init(nrf_handle_t * radio)
 
     rf_flush_rx(radio);
     rf_flush_tx(radio);
-    // radio module should be in standby mode after exiting
 
+    // reset status register in case communication has been previously lost
+    rf_clear_status(radio);
+    
+    // radio module should be in standby mode after exiting
     return RF_SUCCESS;
 }
 

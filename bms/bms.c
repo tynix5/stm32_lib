@@ -10,6 +10,7 @@ status_t bms_init(bms_handle_t * bms, bms_callback_t callback)
     bms->_callback = callback;
     return STATUS_OK;
 }
+
 status_t bms_read_voltage(bms_handle_t * bms, float norm_adc, float * v)
 {
 
@@ -23,8 +24,11 @@ status_t bms_read_voltage(bms_handle_t * bms, float norm_adc, float * v)
         return STATUS_INVALID;
     }
 
+    *v += bms->v_offset;        // add measured voltage offset from ADC
+
     return STATUS_OK;
 }
+
 status_t bms_read_percent(bms_handle_t * bms, float norm_adc, float * percent)
 {
     float v = 0;

@@ -27,11 +27,12 @@ typedef void (*bms_callback_t)(bms_handle_t *, bms_event_t);
 
 typedef struct bms_handle_t
 {
-    bms_battery_type_t type; // battery type
-    uint8_t cell_cnt;        // # of cells
-    float div;               // resistor divider factor (1K || 1K --> 2)
-    float v_ref;             // ADC reference voltage
-    bms_callback_t _callback;   // callback function for battery events
+    bms_battery_type_t type;  // battery type
+    uint8_t cell_cnt;         // # of cells
+    float div;                // resistor divider factor (1K || 1K --> 2)
+    float v_ref;              // ADC reference voltage
+    float v_offset;           // voltage offset (must be measured)
+    bms_callback_t _callback; // callback function for battery events
 
 } bms_handle_t;
 

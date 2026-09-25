@@ -44,6 +44,12 @@ typedef enum
     ENCODER_EVENT_SW_RELEASE
 } encoder_event_t;
 
+typedef enum
+{
+    ENCODER_OK = 0,
+    ENCODER_INVALID_CFG,
+} encoder_status_t;
+
 // could potentially remove all current states, leaving just previous states
 typedef struct
 {

@@ -1,25 +1,25 @@
 #include "encoder_hal.h"
 #include <stdlib.h>
 
-encoder_status_t encoder_detect_event(encoder_handle_t * henc, encoder_event_t * enc_event, encoder_event_t * sw_event)
+encoder_status_t encoder_hal_detect_event(encoder_handle_t * henc, encoder_event_t * enc_event, encoder_event_t * sw_event)
 {
     encoder_mode_t mode = henc->mode;
 
-    *sw_event = encoder_detect_sw(henc);
+    *sw_event = encoder_hal_detect_sw(henc);
 
     switch (mode)
     {
     case ENCODER_MODE_POLL:
-        *enc_event = encoder_detect_poll(henc);
+        *enc_event = encoder_hal_detect_poll(henc);
         break;
     case ENCODER_MODE_EXTI:
-        *enc_event = encoder_detect_exti(henc);
+        *enc_event = encoder_hal_detect_exti(henc);
         break;
     case ENCODER_MODE_TIM:
         if (henc->htim == NULL)
             return ENCODER_NULL_CALLBACK;
         
-        *enc_event = encoder_detect_tim(henc);
+        *enc_event = encoder_hal_detect_tim(henc);
         break;
     default:
         *enc_event = ENCODER_EVENT_NONE;
@@ -28,19 +28,19 @@ encoder_status_t encoder_detect_event(encoder_handle_t * henc, encoder_event_t *
     return ENCODER_OK;
 }
 
-encoder_event_t encoder_detect_poll(encoder_handle_t * henc)
+encoder_event_t encoder_hal_detect_poll(encoder_handle_t * henc)
 {
     // not available yet
     return ENCODER_EVENT_NONE;
 }
 
-encoder_event_t encoder_detect_exti(encoder_handle_t * henc)
+encoder_event_t encoder_hal_detect_exti(encoder_handle_t * henc)
 {
     // not available yet
     return ENCODER_EVENT_NONE;
 }
 
-encoder_event_t encoder_detect_tim(encoder_handle_t * henc)
+encoder_event_t encoder_hal_detect_tim(encoder_handle_t * henc)
 {    
     uint32_t ticks = __HAL_TIM_GET_COUNTER(henc->htim);
     uint32_t t = HAL_GetTick();
@@ -80,7 +80,7 @@ encoder_event_t encoder_detect_tim(encoder_handle_t * henc)
     return event;
 }
 
-encoder_event_t encoder_detect_sw(encoder_handle_t * henc)
+encoder_event_t encoder_hal_detect_sw(encoder_handle_t * henc)
 {
     encoder_event_t sw_event = ENCODER_EVENT_NONE;
 

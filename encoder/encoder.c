@@ -44,7 +44,7 @@ encoder_status_t encoder_update(encoder_handle_t * henc)
 {
     encoder_event_t enc_event, sw_event;
 
-    encoder_status_t status = encoder_detect_event(henc, &enc_event, &sw_event);
+    encoder_status_t status = encoder_hal_detect_event(henc, &enc_event, &sw_event);
     
     if (status != ENCODER_OK)
         return status;

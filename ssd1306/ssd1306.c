@@ -29,8 +29,8 @@ ssd1306_status_t ssd1306_init(ssd1306_handle_t * holed)
     uint8_t init[] = { SSD1306_I2C_COMMAND,   SSD1306_SET_START_LINE,  SSD1306_DISPLAY_OFF,     SSD1306_RESUME_RAM,     SSD1306_NORMAL_DISP,
                        SSD1306_MEM_ADDR_MODE, SSD1306_HORIZONTAL_ADDR, SSD1306_CHARGE_PUMP_REG, SSD1306_EN_CHARGE_PUMP, SSD1306_DISPLAY_ON };
 
-    memcpy(holed->_tx_buff, init, sizeof(init));
-    ssd1306_status_t status = ssd1306_hal_write(holed, holed->_tx_buff, sizeof(init));
+    memcpy(holed->tx_buff, init, sizeof(init));
+    ssd1306_status_t status = ssd1306_hal_write(holed, holed->tx_buff, sizeof(init));
 
     if (status == SSD1306_OK)
     {
@@ -276,10 +276,10 @@ ssd1306_status_t ssd1306_update(ssd1306_handle_t * holed)
     uint32_t frame_size = holed->res_x * holed->res_y / 8;
     uint32_t cursor_cmd_size = sizeof(set_cursor);
 
-    memcpy(holed->_tx_buff, set_cursor, cursor_cmd_size);
-    memcpy(holed->_tx_buff + cursor_cmd_size, holed->frame_buff, frame_size);
+    memcpy(holed->tx_buff, set_cursor, cursor_cmd_size);
+    memcpy(holed->tx_buff + cursor_cmd_size, holed->frame_buff, frame_size);
 
-    return ssd1306_hal_write(holed, holed->_tx_buff, frame_size + cursor_cmd_size);
+    return ssd1306_hal_write(holed, holed->tx_buff, frame_size + cursor_cmd_size);
 }
 
 ssd1306_status_t ssd1306_callback(I2C_HandleTypeDef * hi2c)

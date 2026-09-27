@@ -112,6 +112,7 @@ typedef struct
     I2C_HandleTypeDef * hi2c;      // I2C handle
 
     uint8_t * frame_buff;          // pointer to display buffer (res_x * res_y / 8)
+    uint8_t * tx_buff;             // pointer to tx buffer --> should never be modified by user (res_x * res_y / 8 + 13)
     ssd1306_phy_mode_t mode;       // DMA mode or blocking mode
     
     uint32_t res_x;                // horizontal resolution (pixels)
@@ -119,7 +120,6 @@ typedef struct
     
     // private variables
     ssd1306_dma_status_t _dma_busy; // is DMA in use
-    uint8_t * _tx_buff;             // pointer to tx buffer --> should never be modified by user (res_x * res_y / 8 + 13)
     bool _initalized;               // has SSD1306 been initialized?
 
 } ssd1306_handle_t;

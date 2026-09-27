@@ -1,7 +1,7 @@
 #include "encoder_hal.h"
 #include <stdlib.h>
 
-void encoder_detect_event(encoder_handle_t * henc, encoder_event_t * enc_event, encoder_event_t * sw_event)
+encoder_status_t encoder_detect_event(encoder_handle_t * henc, encoder_event_t * enc_event, encoder_event_t * sw_event)
 {
     encoder_mode_t mode = henc->mode;
 
@@ -16,11 +16,16 @@ void encoder_detect_event(encoder_handle_t * henc, encoder_event_t * enc_event, 
         *enc_event = encoder_detect_exti(henc);
         break;
     case ENCODER_MODE_TIM:
+        if (henc->htim == NULL)
+            return ENCODER_NULL_CALLBACK;
+        
         *enc_event = encoder_detect_tim(henc);
         break;
     default:
         *enc_event = ENCODER_EVENT_NONE;
     }
+
+    return ENCODER_OK;
 }
 
 encoder_event_t encoder_detect_poll(encoder_handle_t * henc)
@@ -36,24 +41,24 @@ encoder_event_t encoder_detect_exti(encoder_handle_t * henc)
 }
 
 encoder_event_t encoder_detect_tim(encoder_handle_t * henc)
-{
-    henc->_state.ticks = __HAL_TIM_GET_COUNTER(henc->htim);
-
+{    
+    uint32_t ticks = __HAL_TIM_GET_COUNTER(henc->htim);
     uint32_t t = HAL_GetTick();
+
     encoder_event_t event = ENCODER_EVENT_NONE;
 
     // check for rotation
     // determine exactly how many ticks spinning the encoder gives
     // add support for different encoders ( 2 PPT, 4PPT, etc)
-    if (t - henc->_state.prev_update > henc->t_update)
+    if (t - henc->_state.last_update > henc->t_update)
     {
-        henc->_state.delta_ticks = henc->_state.ticks - henc->_state.prev_ticks;
+        int32_t delta = ticks - henc->_state.last_ticks;
 
-        // if (abs(henc->_state.delta_ticks))
-        if (abs(henc->_state.delta_ticks) > 1)
+        // fix this for when encoder is halfway turned between "full" turns
+        if (abs(delta) > 1)
         {
             // determine direction
-            if (henc->_state.ticks > henc->_state.prev_ticks)
+            if (ticks > henc->_state.last_ticks)
             {
                 // add code for computing the number of spins it made to determine how many pages to move?
                 henc->_state.direction = ENCODER_DIR_CW;
@@ -66,9 +71,9 @@ encoder_event_t encoder_detect_tim(encoder_handle_t * henc)
             }
 
             // velocity notation - CW +, CCW -
-            henc->_state.velocity = (float)henc->_state.delta_ticks / (t - henc->_state.prev_update);
-            henc->_state.prev_update = t;
-            henc->_state.prev_ticks = henc->_state.ticks;
+            henc->_state.velocity = (float)delta / (t - henc->_state.last_update);
+            henc->_state.last_update = t;
+            henc->_state.last_ticks = ticks;
         }
     }
 
@@ -77,22 +82,24 @@ encoder_event_t encoder_detect_tim(encoder_handle_t * henc)
 
 encoder_event_t encoder_detect_sw(encoder_handle_t * henc)
 {
-    encoder_event_t sw_event = ENCODER_SW_NO_CHANGE;
+    encoder_event_t sw_event = ENCODER_EVENT_NONE;
 
+    encoder_sw_state_t sw;
+    
     // enable pull-ups
-    // this sucks
     if (HAL_GPIO_ReadPin(henc->sw_gpio, henc->sw_pin) == GPIO_PIN_SET)
     {
-        henc->_state.sw = ENCODER_SW_RELEASE;
+        sw = ENCODER_SW_RELEASE;
     }
     else
     {
-        henc->_state.sw = ENCODER_SW_PRESS;
+        sw = ENCODER_SW_PRESS;
     }
 
-    if (henc->_state.sw != henc->_state.prev_sw)
+    // if switch state has changed...
+    if (sw != henc->_state.last_sw)
     {
-        if (henc->_state.sw == ENCODER_SW_PRESS)
+        if (sw == ENCODER_SW_PRESS)
         {
             sw_event = ENCODER_EVENT_SW_PRESS;
         }
@@ -102,7 +109,7 @@ encoder_event_t encoder_detect_sw(encoder_handle_t * henc)
         }
     }
 
-    henc->_state.prev_sw = henc->_state.sw;
+    henc->_state.last_sw = sw;
 
     return sw_event;
 }

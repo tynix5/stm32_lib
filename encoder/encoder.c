@@ -2,47 +2,52 @@
 #include "encoder_hal.h"
 #include <limits.h>
 
-status_t encoder_init(encoder_handle_t * henc)
+encoder_status_t encoder_init(encoder_handle_t * henc)
 {
     // set defaults for private members
-    henc->_state.sw = henc->_state.prev_sw = ENCODER_SW_RELEASE;
-    henc->_state.position = henc->_state.prev_position = 0;
+    henc->_state.last_sw = ENCODER_SW_RELEASE;
+    henc->_state.position = 0;
     henc->_state.velocity = 0;
     henc->_state.direction = ENCODER_DIR_NONE;
-    henc->_state.ticks = henc->_state.prev_ticks = ENCODER_SW_RELEASE;
-    henc->_state.prev_update = 0;
+    henc->_state.last_ticks = 0;
+    henc->_state.last_update = 0;
     henc->_pos_mode = ENCODER_POS_CLAMP;
     henc->_position_max = LONG_MAX;
     henc->_position_min = LONG_MIN;
 
-    return STATUS_OK;
+    return ENCODER_OK;
 }
 
-status_t encoder_constrain(encoder_handle_t * henc, int32_t min, int32_t max)
+encoder_status_t encoder_constrain(encoder_handle_t * henc, int32_t min, int32_t max)
 {
     if (max <= min)
-        return STATUS_INVALID;
+        return ENCODER_INVALID_CFG;
 
+    // set maximum and minimum positions
     henc->_position_max = max;
     henc->_position_min = min;
 
-    return STATUS_OK;
+    return ENCODER_OK;
 }
 
-status_t encoder_set_pos_mode(encoder_handle_t * henc, encoder_pos_mode_t pos_mode)
+encoder_status_t encoder_set_pos_mode(encoder_handle_t * henc, encoder_pos_mode_t pos_mode)
 {
     if (pos_mode != ENCODER_POS_CLAMP && pos_mode != ENCODER_POS_WRAP)
-        return STATUS_INVALID;
+        return ENCODER_INVALID_CFG;
 
     henc->_pos_mode = pos_mode;
 
-    return STATUS_OK;
+    return ENCODER_OK;
 }
 
-status_t encoder_update(encoder_handle_t * henc)
+encoder_status_t encoder_update(encoder_handle_t * henc)
 {
     encoder_event_t enc_event, sw_event;
-    encoder_detect_event(henc, &enc_event, &sw_event);
+
+    encoder_status_t status = encoder_detect_event(henc, &enc_event, &sw_event);
+    
+    if (status != ENCODER_OK)
+        return status;
 
     switch (enc_event)
     {
@@ -79,7 +84,6 @@ status_t encoder_update(encoder_handle_t * henc)
                 henc->_state.position = new_pos;
             */
         }
-        // henc->_callback(henc, enc_event);
         break;
 
     case ENCODER_EVENT_CCW_TURN:
@@ -111,31 +115,33 @@ status_t encoder_update(encoder_handle_t * henc)
                 henc->_state.position = new_pos;
             */
         }
-        // henc->_callback(henc, enc_event);
         break;
     default:
     }
 
-    switch (sw_event)
-    {
-    case ENCODER_EVENT_NONE:
-    case ENCODER_EVENT_CW_TURN:
-    case ENCODER_EVENT_CCW_TURN:
-    default:
-    }
-
+    if (henc->_callback == NULL)
+        return ENCODER_NULL_CALLBACK;
+    
     henc->_callback(henc, enc_event, sw_event);
 
-    return STATUS_OK;
+    return ENCODER_OK;
 }
 
-status_t encoder_register_callback(encoder_handle_t * henc, encoder_callback_t callback)
+encoder_status_t encoder_register_callback(encoder_handle_t * henc, encoder_callback_t callback)
 {
+    if (callback == NULL)
+        return ENCODER_NULL_CALLBACK;
+
     henc->_callback = callback;
-    return STATUS_OK;
+    return ENCODER_OK;
 }
 
 int32_t encoder_get_position(encoder_handle_t * henc)
 {
     return henc->_state.position;
+}
+
+float encoder_get_velocity(encoder_handle_t * henc)
+{
+    return henc->_state.velocity;
 }

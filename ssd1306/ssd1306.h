@@ -2,8 +2,8 @@
 #define SSD1306_H_
 
 #include "stm32l4xx_hal.h"
-#include "generic_types.h"
 #include <stdint.h>
+#include <stdbool.h>
 
 /*************************** Registers + Commands ********************************/
 // Fundamental Commands
@@ -98,37 +98,62 @@ typedef enum
 
 } ssd1306_dma_status_t;
 
+typedef enum
+{
+    SSD1306_OK = 0,
+    SSD1306_INVALID_CFG,
+    SSD1306_BUSY,
+    SSD1306_NULL_POINTER,
+    SSD1306_NOT_INIT,
+    SSD1306_PHY_ERR,
+} ssd1306_status_t;
 typedef struct
 {
     I2C_HandleTypeDef * hi2c;      // I2C handle
 
     uint8_t * frame_buff;          // pointer to display buffer (res_x * res_y / 8)
-    uint8_t * tx_buff;             // pointer to tx buffer --> should never be modified by user (res_x * res_y / 8 + 13)
     ssd1306_phy_mode_t mode;       // DMA mode or blocking mode
-
+    
     uint32_t res_x;                // horizontal resolution (pixels)
     uint32_t res_y;                // vertical resolution (pixels)
-
-    ssd1306_dma_status_t dma_busy; // is DMA in use
+    
+    // private variables
+    ssd1306_dma_status_t _dma_busy; // is DMA in use
+    uint8_t * _tx_buff;             // pointer to tx buffer --> should never be modified by user (res_x * res_y / 8 + 13)
+    bool _initalized;               // has SSD1306 been initialized?
 
 } ssd1306_handle_t;
 
-extern ssd1306_handle_t * ssd1306_devices[SSD1306_MAX_DEVICES];
+extern ssd1306_handle_t * ssd1306_devices[SSD1306_MAX_DEVICES]; // tracks all OLEDs initialized
 extern uint8_t ssd1306_device_cnt;
 
-status_t ssd1306_init(ssd1306_handle_t * holed);
-status_t ssd1306_draw_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y);
-status_t ssd1306_clear_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y);
-status_t ssd1306_draw_line(ssd1306_handle_t * holed, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
-status_t ssd1306_draw_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h);
-status_t ssd1306_draw_filled_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h);
-status_t ssd1306_draw_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r);
-status_t ssd1306_draw_filled_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r);
-status_t ssd1306_write_ch(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char ch);
-status_t ssd1306_write_str(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char * str);
-status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t bitmap[], uint8_t size_x, uint8_t size_y);
-status_t ssd1306_clear(ssd1306_handle_t * holed);
-status_t ssd1306_update(ssd1306_handle_t * holed);
-status_t ssd1306_callback(I2C_HandleTypeDef * hi2c); // place into HAL_I2C_MasterTxCpltCallback()
+/* Turn on and initialize SSD1306 OLED */
+ssd1306_status_t ssd1306_init(ssd1306_handle_t * holed);
+/* Set pixel at (x, y) in buffer */
+ssd1306_status_t ssd1306_draw_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y);
+/* Clear pixel at (x, y) in buffer */
+ssd1306_status_t ssd1306_clear_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y);
+/* Draw line in buffer */
+ssd1306_status_t ssd1306_draw_line(ssd1306_handle_t * holed, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1);
+/* Draw unfilled rectangle in buffer */
+ssd1306_status_t ssd1306_draw_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h);
+/* Draw filled rectangle in buffer */
+ssd1306_status_t ssd1306_draw_filled_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h);
+/* Draw unfilled circle in buffer */
+ssd1306_status_t ssd1306_draw_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r);
+/* Draw filled circle in buffer */
+ssd1306_status_t ssd1306_draw_filled_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r);
+/* Write character into buffer (from font8x8_basic)*/
+ssd1306_status_t ssd1306_write_ch(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char ch);
+/* Write string of characters into buffer */
+ssd1306_status_t ssd1306_write_str(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char * str);
+/* Draw bitmap of size x * y in buffer */
+ssd1306_status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t bitmap[], uint8_t size_x, uint8_t size_y);
+/* Clear buffer */
+ssd1306_status_t ssd1306_clear(ssd1306_handle_t * holed);
+/* Send buffer contents to SSD1306 */
+ssd1306_status_t ssd1306_update(ssd1306_handle_t * holed);
+/* DMA callback */
+ssd1306_status_t ssd1306_callback(I2C_HandleTypeDef * hi2c); // place into HAL_I2C_MasterTxCpltCallback()
 
 #endif

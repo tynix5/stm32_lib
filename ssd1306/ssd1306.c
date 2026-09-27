@@ -5,20 +5,23 @@
 #include <math.h>
 
 /********************************************** OLED Helper Functions *******************************************/
-static status_t ssd1306_write_buff_bit(ssd1306_handle_t * holed, uint8_t x_new, uint8_t y_new, uint8_t offset, ssd1306_pix_color_t color);
-static status_t ssd1306_write_buff_col(ssd1306_handle_t * holed, uint8_t x_new, uint8_t page, ssd1306_pix_color_t color);
-static status_t ssd1306_transform_xy(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t * x_new, uint8_t * y_new, uint8_t * offset);
+static ssd1306_status_t ssd1306_write_buff_bit(ssd1306_handle_t * holed, uint8_t x_new, uint8_t y_new, uint8_t offset, ssd1306_pix_color_t color);
+static ssd1306_status_t ssd1306_write_buff_col(ssd1306_handle_t * holed, uint8_t x_new, uint8_t page, ssd1306_pix_color_t color);
+static ssd1306_status_t ssd1306_transform_xy(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t * x_new, uint8_t * y_new, uint8_t * offset);
 /****************************************************************************************************************/
 
 ssd1306_handle_t * ssd1306_devices[SSD1306_MAX_DEVICES];
 uint8_t ssd1306_device_cnt = 0;
 
-status_t ssd1306_init(ssd1306_handle_t * holed)
+ssd1306_status_t ssd1306_init(ssd1306_handle_t * holed)
 {
+    if (holed->hi2c == NULL)
+        return SSD1306_NULL_POINTER;
+
     // register device
     ssd1306_devices[ssd1306_device_cnt++] = holed;
 
-    holed->dma_busy = SSD1306_DMA_OK;
+    holed->_dma_busy = SSD1306_DMA_OK;
 
     // wait for display to power up
     HAL_Delay(100);
@@ -26,28 +29,37 @@ status_t ssd1306_init(ssd1306_handle_t * holed)
     uint8_t init[] = { SSD1306_I2C_COMMAND,   SSD1306_SET_START_LINE,  SSD1306_DISPLAY_OFF,     SSD1306_RESUME_RAM,     SSD1306_NORMAL_DISP,
                        SSD1306_MEM_ADDR_MODE, SSD1306_HORIZONTAL_ADDR, SSD1306_CHARGE_PUMP_REG, SSD1306_EN_CHARGE_PUMP, SSD1306_DISPLAY_ON };
 
-    memcpy(holed->tx_buff, init, sizeof(init));
-    return ssd1306_write(holed, holed->tx_buff, sizeof(init));
+    memcpy(holed->_tx_buff, init, sizeof(init));
+    ssd1306_status_t status = ssd1306_hal_write(holed, holed->_tx_buff, sizeof(init));
+
+    if (status == SSD1306_OK)
+    {
+        holed->_initalized = true;
+        return SSD1306_OK;
+    }
+
+    holed->_initalized = false;
+    return status;
 }
 
-status_t ssd1306_draw_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y)
+ssd1306_status_t ssd1306_draw_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y)
 {
     uint8_t x_new, y_new, offset;
     ssd1306_transform_xy(holed, x, y, &x_new, &y_new, &offset);
     return ssd1306_write_buff_bit(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
 }
 
-status_t ssd1306_clear_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y)
+ssd1306_status_t ssd1306_clear_pixel(ssd1306_handle_t * holed, uint8_t x, uint8_t y)
 {
     uint8_t x_new, y_new, offset;
     ssd1306_transform_xy(holed, x, y, &x_new, &y_new, &offset);
     return ssd1306_write_buff_bit(holed, x_new, y_new, offset, SSD1306_PIX_BLACK);
 }
 
-status_t ssd1306_draw_line(ssd1306_handle_t * holed, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
+ssd1306_status_t ssd1306_draw_line(ssd1306_handle_t * holed, uint8_t x0, uint8_t y0, uint8_t x1, uint8_t y1)
 {
     if (x0 > holed->res_x - 1 || x1 > holed->res_x - 1 || y0 > holed->res_y - 1 || y1 > holed->res_y - 1)
-        return STATUS_INVALID;
+        return SSD1306_INVALID_CFG;
 
     uint8_t x_start = x0, y_start = y0;
     uint8_t x_end = x1, y_end = y1;
@@ -73,7 +85,7 @@ status_t ssd1306_draw_line(ssd1306_handle_t * holed, uint8_t x0, uint8_t y0, uin
             ssd1306_transform_xy(holed, x0, i, &x_xform, &y_xform, &offset);
             ssd1306_write_buff_bit(holed, x_xform, y_xform, offset, SSD1306_PIX_WHITE);
         }
-        return STATUS_OK;
+        return SSD1306_OK;
     }
 
     double slope = (double)(y_end - y_start) / (x_end - x_start);
@@ -87,14 +99,14 @@ status_t ssd1306_draw_line(ssd1306_handle_t * holed, uint8_t x0, uint8_t y0, uin
         ssd1306_write_buff_bit(holed, x_xform, y_xform, offset, SSD1306_PIX_WHITE);
     }
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-status_t ssd1306_draw_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+ssd1306_status_t ssd1306_draw_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 {
     // (x, y) is top left corner of rectangle
     if (x > holed->res_x - 1 || y > holed->res_y - 1 || x + w > holed->res_x - 1 || y + h > holed->res_y - 1)
-        return STATUS_INVALID;
+        return SSD1306_INVALID_CFG;
 
     uint8_t x_new, y_new, offset;
 
@@ -115,13 +127,13 @@ status_t ssd1306_draw_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8
         ssd1306_write_buff_bit(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
     }
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-status_t ssd1306_draw_filled_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
+ssd1306_status_t ssd1306_draw_filled_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t w, uint8_t h)
 {
     if (x > holed->res_x - 1 || y > holed->res_y - 1 || x + w > holed->res_x - 1 || y + h > holed->res_y - 1)
-        return STATUS_INVALID;
+        return SSD1306_INVALID_CFG;
 
     for (uint8_t i = 0; i < w; i++)
     {
@@ -133,14 +145,14 @@ status_t ssd1306_draw_filled_rect(ssd1306_handle_t * holed, uint8_t x, uint8_t y
         }
     }
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-status_t ssd1306_draw_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r)
+ssd1306_status_t ssd1306_draw_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r)
 {
     // (x, y) is center of circle
     if (x > holed->res_x - 1 || x + r > holed->res_x - 1 || y > holed->res_y - 1 || y + r > holed->res_y - 1)
-        return STATUS_INVALID;
+        return SSD1306_INVALID_CFG;
 
     for (uint8_t curr_x = x - r; curr_x <= x + r; curr_x++)
     {
@@ -155,14 +167,14 @@ status_t ssd1306_draw_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uin
         ssd1306_write_buff_bit(holed, x_new, y_new, offset, SSD1306_PIX_WHITE);
     }
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-status_t ssd1306_draw_filled_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r)
+ssd1306_status_t ssd1306_draw_filled_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t r)
 {
     // (x, y) is center of circle
     if (x > holed->res_x - 1 || x + r > holed->res_x - 1 || y > holed->res_y - 1 || y + r > holed->res_y - 1)
-        return STATUS_INVALID;
+        return SSD1306_INVALID_CFG;
 
     for (uint8_t curr_x = x - r; curr_x <= x + r; curr_x++)
     {
@@ -178,13 +190,13 @@ status_t ssd1306_draw_filled_circle(ssd1306_handle_t * holed, uint8_t x, uint8_t
         }
     }
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-status_t ssd1306_write_ch(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char ch)
+ssd1306_status_t ssd1306_write_ch(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char ch)
 {
     if (x + FONT_WIDTH > holed->res_x - 1 || y + FONT_HEIGHT > holed->res_y - 1)
-        return STATUS_INVALID;
+        return SSD1306_INVALID_CFG;
 
     const uint8_t * bitmap = (uint8_t *)font8x8_basic[(uint8_t)ch];
 
@@ -202,23 +214,23 @@ status_t ssd1306_write_ch(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char c
         }
     }
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-status_t ssd1306_write_str(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char * str)
+ssd1306_status_t ssd1306_write_str(ssd1306_handle_t * holed, uint8_t x, uint8_t y, char * str)
 {
     for (uint8_t i = 0; *str; i++)
     {
         ssd1306_write_ch(holed, x + i * FONT_WIDTH, y, *str++);
     }
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t bitmap[], uint8_t size_x, uint8_t size_y)
+ssd1306_status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t bitmap[], uint8_t size_x, uint8_t size_y)
 {
     if (x + size_x > holed->res_x - 1 || y + size_y > holed->res_y - 1)
-        return STATUS_INVALID;
+        return SSD1306_INVALID_CFG;
 
     for (uint8_t i = 0; i < size_x; i++)
     {
@@ -234,23 +246,26 @@ status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uin
         }
     }
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-status_t ssd1306_clear(ssd1306_handle_t * holed)
+ssd1306_status_t ssd1306_clear(ssd1306_handle_t * holed)
 {
     for (uint8_t i = 0; i < holed->res_y / 8; i++)
         for (uint8_t j = 0; j < holed->res_x; j++)
             ssd1306_write_buff_col(holed, j, i, SSD1306_PIX_BLACK);
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-status_t ssd1306_update(ssd1306_handle_t * holed)
+ssd1306_status_t ssd1306_update(ssd1306_handle_t * holed)
 {
+    if (!holed->_initalized)
+        return SSD1306_NOT_INIT;
+        
     // do not overwrite TX buffer if in use
-    if (holed->dma_busy == SSD1306_DMA_BUSY)
-        return STATUS_BUSY;
+    if (holed->_dma_busy == SSD1306_DMA_BUSY)
+        return SSD1306_BUSY;
 
     // set cursors to (0, 0)
     // combines command bytes and data bytes into single transaction for DMA purposes
@@ -261,21 +276,24 @@ status_t ssd1306_update(ssd1306_handle_t * holed)
     uint32_t frame_size = holed->res_x * holed->res_y / 8;
     uint32_t cursor_cmd_size = sizeof(set_cursor);
 
-    memcpy(holed->tx_buff, set_cursor, cursor_cmd_size);
-    memcpy(holed->tx_buff + cursor_cmd_size, holed->frame_buff, frame_size);
+    memcpy(holed->_tx_buff, set_cursor, cursor_cmd_size);
+    memcpy(holed->_tx_buff + cursor_cmd_size, holed->frame_buff, frame_size);
 
-    return ssd1306_write(holed, holed->tx_buff, frame_size + cursor_cmd_size);
+    return ssd1306_hal_write(holed, holed->_tx_buff, frame_size + cursor_cmd_size);
 }
 
-status_t ssd1306_callback(I2C_HandleTypeDef * hi2c)
+ssd1306_status_t ssd1306_callback(I2C_HandleTypeDef * hi2c)
 {
-    i2c_dma_callback(hi2c);
+    if (hi2c == NULL)
+        return SSD1306_NULL_POINTER;
+    
+    ssd1306_hal_i2c_dma_callback(hi2c);
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
 /********************************************** OLED Helper Functions *******************************************/
-static status_t ssd1306_write_buff_bit(ssd1306_handle_t * holed, uint8_t x_new, uint8_t y_new, uint8_t offset, ssd1306_pix_color_t color)
+static ssd1306_status_t ssd1306_write_buff_bit(ssd1306_handle_t * holed, uint8_t x_new, uint8_t y_new, uint8_t offset, ssd1306_pix_color_t color)
 {
     uint32_t idx = y_new * holed->res_x + x_new;
     uint8_t byte = holed->frame_buff[idx];
@@ -287,10 +305,10 @@ static status_t ssd1306_write_buff_bit(ssd1306_handle_t * holed, uint8_t x_new, 
 
     holed->frame_buff[idx] = byte;
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-static status_t ssd1306_write_buff_col(ssd1306_handle_t * holed, uint8_t x_new, uint8_t page, ssd1306_pix_color_t color)
+static ssd1306_status_t ssd1306_write_buff_col(ssd1306_handle_t * holed, uint8_t x_new, uint8_t page, ssd1306_pix_color_t color)
 {
     uint32_t idx = page * holed->res_x + x_new;
     uint8_t byte;
@@ -302,10 +320,10 @@ static status_t ssd1306_write_buff_col(ssd1306_handle_t * holed, uint8_t x_new, 
 
     holed->frame_buff[idx] = byte;
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 
-static status_t ssd1306_transform_xy(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t * x_new, uint8_t * y_new, uint8_t * offset)
+static ssd1306_status_t ssd1306_transform_xy(ssd1306_handle_t * holed, uint8_t x, uint8_t y, uint8_t * x_new, uint8_t * y_new, uint8_t * offset)
 {
     if (x > holed->res_x - 1)
         x = holed->res_x - 1;
@@ -316,6 +334,6 @@ static status_t ssd1306_transform_xy(ssd1306_handle_t * holed, uint8_t x, uint8_
     *y_new = y / 8;
     *offset = y % 8;
 
-    return STATUS_OK;
+    return SSD1306_OK;
 }
 /****************************************************************************************************************/

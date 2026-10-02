@@ -1,26 +1,26 @@
 #include "nrf24_hal.h"
 
-inline void nrf24_hal_select(const nrf24_handle_t * radio)
+void nrf24_hal_select(const nrf24_handle_t * radio)
 {
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_RESET);
 }
 
-inline void nrf24_hal_deselect(const nrf24_handle_t * radio)
+void nrf24_hal_deselect(const nrf24_handle_t * radio)
 {
     HAL_GPIO_WritePin(radio->cs_gpio, radio->cs_pin, GPIO_PIN_SET);
 }
 
-inline void nrf24_hal_enable(const nrf24_handle_t * radio)
+void nrf24_hal_enable(const nrf24_handle_t * radio)
 {
     HAL_GPIO_WritePin(radio->ce_gpio, radio->ce_pin, GPIO_PIN_SET);
 }
 
-inline void nrf24_hal_disable(const nrf24_handle_t * radio)
+void nrf24_hal_disable(const nrf24_handle_t * radio)
 {
     HAL_GPIO_WritePin(radio->ce_gpio, radio->ce_pin, GPIO_PIN_RESET);
 }
 
-nrf24_status_t nrf24_hal_write_reg(const nrf24_handle_t * radio, const uint8_t reg, const uint8_t * data, const uint8_t dlen)
+nrf24_status_t nrf24_hal_write_reg(const nrf24_handle_t * radio, uint8_t reg, const uint8_t * data, const uint8_t dlen)
 {
     if (radio->hspi == NULL)
         return NRF24_NULL_POINTER;

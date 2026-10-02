@@ -2,11 +2,11 @@
 #include "nrf24.h"
 #include "nrf24_hal.h"
 
-// #ifdef STM32L432xx
-// #include "stm32l4xx_hal.h"
-// #elif defined(STM32F446xx)
-// #include "stm32f4xx_hal.h"
-// #endif
+#ifdef STM32L432xx
+#include "stm32l4xx_hal.h"
+#elif defined(STM32F446xx)
+#include "stm32f4xx_hal.h"
+#endif
 
 /**************************************** Helper Functions *******************************************/
 /* Enter standby mode 1 */
@@ -42,12 +42,11 @@ static void nrf24_read_payload_width(const nrf24_handle_t * radio, const nrf24_p
 static void nrf24_set_irq(const nrf24_handle_t * radio);
 /*****************************************************************************************************/
 
-
 nrf24_status_t nrf24_init(nrf24_handle_t * radio)
 {
     if (radio->hspi == NULL || radio->delay_ms == NULL || radio->delay_us == NULL)
         return NRF24_NULL_POINTER;
-    
+
     nrf24_hal_deselect(radio);
     nrf24_hal_disable(radio);
 
@@ -77,7 +76,7 @@ nrf24_status_t nrf24_init(nrf24_handle_t * radio)
     nrf24_clear_status(radio);
 
     radio->_initialized = true;
-    
+
     // radio module should be in standby mode after exiting
     return NRF24_OK;
 }
@@ -113,7 +112,7 @@ nrf24_status_t nrf24_open_rx_pipe(const nrf24_handle_t * radio, const nrf24_pipe
         // dynamic payloads feature must be enabled
         curr_features |= NRF24_BIT_EN_DPL;
     }
-    else 
+    else
     {
         // disable dynamic payload lengths
         dynpd &= ~(1 << pipe->num);
@@ -125,16 +124,16 @@ nrf24_status_t nrf24_open_rx_pipe(const nrf24_handle_t * radio, const nrf24_pipe
 
     switch (pipe->ack)
     {
-        case NRF24_AUTO_ACK_DISABLE:
-            en_aa &= ~(1 << pipe->num);     // disable auto-acks
-            curr_features |= NRF24_BIT_EN_DYN_ACK;
+    case NRF24_AUTO_ACK_DISABLE:
+        en_aa &= ~(1 << pipe->num); // disable auto-acks
+        curr_features |= NRF24_BIT_EN_DYN_ACK;
         break;
-        case NRF24_AUTO_ACK_ENABLE:
-            en_aa |= (1 << pipe->num);      // enable auto-acks
+    case NRF24_AUTO_ACK_ENABLE:
+        en_aa |= (1 << pipe->num);             // enable auto-acks
         break;
-        case NRF24_AUTO_ACK_PAYLOAD:
-            en_aa |= (1 << pipe->num);      // enable auto-acks
-            curr_features |= NRF24_BIT_EN_ACK_PAY;  // enable acks with payload
+    case NRF24_AUTO_ACK_PAYLOAD:
+        en_aa |= (1 << pipe->num);             // enable auto-acks
+        curr_features |= NRF24_BIT_EN_ACK_PAY; // enable acks with payload
         break;
     }
 
@@ -143,8 +142,8 @@ nrf24_status_t nrf24_open_rx_pipe(const nrf24_handle_t * radio, const nrf24_pipe
     nrf24_hal_write_reg(radio, NRF24_REG_EN_AA, &en_aa, 1);
 
     // enable writes to any special function register
-    uint8_t activate[2] = { NRF24_ACTIVATE, 0x73 };
-    nrf24_hal_spi_transmit(radio, activate, 2);
+    uint8_t activate = 0x73;
+    nrf24_hal_write_reg(radio, NRF24_ACTIVATE, &activate, 1);
 
     nrf24_hal_write_reg(radio, NRF24_REG_FEATURE, &curr_features, 1);
 
@@ -158,7 +157,7 @@ nrf24_status_t nrf24_open_rx_pipe(const nrf24_handle_t * radio, const nrf24_pipe
     nrf24_write_rx_addr(radio, pipe);
 
     // copy all pipe data into radio structure
-    memcpy(&(radio->_pipes[pipe->num]), pipe, sizeof(*pipe));
+    memcpy((uint8_t *)(&(radio->_pipes[pipe->num])), (uint8_t *)pipe, sizeof(*pipe));
 
     return NRF24_OK;
 }
@@ -172,7 +171,7 @@ nrf24_status_t nrf24_open_tx_pipe(const nrf24_handle_t * radio, const uint64_t a
         return NRF24_NULL_POINTER;
 
     // RX_ADDR_P0 must equal the TX address in order to handle automatic acknowledgements
-    uint8_t tx_addr[5] = {(uint8_t)address, (uint8_t)(address >> 8), (uint8_t)(address >> 16), (uint8_t)(address >> 24), (uint8_t)(address >> 24)};
+    uint8_t tx_addr[5] = { (uint8_t)address, (uint8_t)(address >> 8), (uint8_t)(address >> 16), (uint8_t)(address >> 24), (uint8_t)(address >> 24) };
 
     return nrf24_hal_write_reg(radio, NRF24_REG_TX_ADDR, tx_addr, sizeof(tx_addr));
 }
@@ -213,7 +212,7 @@ nrf24_status_t nrf24_send(const nrf24_handle_t * radio, const uint8_t * pkt, con
             nrf24_flush_tx(radio);
             return NRF24_MAX_RETRIES;
         }
-        else if (status & NRF24_BIT_TX_DS)      // if ack has been received or no ack is expected, exit
+        else if (status & NRF24_BIT_TX_DS) // if ack has been received or no ack is expected, exit
         {
             break;
         }
@@ -234,9 +233,8 @@ nrf24_status_t nrf24_send(const nrf24_handle_t * radio, const uint8_t * pkt, con
     // if receiving ack with a payload, this section will be executed
     if (expect_ack && (status & NRF24_BIT_RX_DR))
     {
-        // read acknowledgement width
-        uint8_t tmp;
-        nrf24_read_payload_width(radio, alen, &tmp);
+        // read acknowledgement width (auto-acks only on pipe 0)
+        nrf24_read_payload_width(radio, NRF24_PIPE0, alen);
 
         if (*alen > NRF24_MAX_PKT_SIZE_BYTES)
         {
@@ -261,10 +259,10 @@ nrf24_status_t nrf24_listen(const nrf24_handle_t * radio, const uint32_t timeout
 {
     if (radio->hspi == NULL)
         return NRF24_NULL_POINTER;
-    
+
     if (!radio->_initialized)
         return NRF24_NOT_INIT;
-    
+
     // receiver --> PRIM_RX = 1, CE = 1
     nrf24_standby_rx(radio);
 
@@ -301,7 +299,7 @@ nrf24_status_t nrf24_listen_it(const nrf24_handle_t * radio)
 {
     if (radio->hspi == NULL)
         return NRF24_NULL_POINTER;
-    
+
     if (!radio->_initialized)
         return NRF24_NOT_INIT;
 
@@ -317,13 +315,13 @@ nrf24_status_t nrf24_receive(const nrf24_handle_t * radio, const uint8_t * ack, 
 {
     if (radio->hspi == NULL)
         return NRF24_NULL_POINTER;
-    
+
     if (!radio->_initialized)
         return NRF24_NOT_INIT;
 
     nrf24_hal_disable(radio);
-    nrf24_read_rx_pipe_num(radio, pipe_num);       // get pipe from which data was received
-    nrf24_read_payload_width(radio, *pipe_num, plen);    // read payload width based on pipe being dynamic/static
+    nrf24_read_rx_pipe_num(radio, pipe_num);          // get pipe from which data was received
+    nrf24_read_payload_width(radio, *pipe_num, plen); // read payload width based on pipe being dynamic/static
 
     // if an invalid packet, discard it and flush FIFO
     if (*plen > NRF24_MAX_PKT_SIZE_BYTES)
@@ -343,7 +341,7 @@ nrf24_status_t nrf24_receive(const nrf24_handle_t * radio, const uint8_t * ack, 
     if (radio->_pipes[*pipe_num].ack == NRF24_AUTO_ACK_PAYLOAD && alen > 0)
     {
         // write response payload
-        nrf24_hal_write_ack_payload(radio, ack, alen);
+        nrf24_hal_write_ack(radio, ack, alen);
     }
 
     // clear flags after reading packet and loading acks
@@ -359,7 +357,7 @@ nrf24_status_t nrf24_set_retransmit(const nrf24_handle_t * radio, const nrf24_re
 
     if (delay > NRF24_RETRY_DELAY_4000 || count > NRF24_RETRY_CNT_15)
         return NRF24_INVALID_CFG;
-    
+
     uint8_t setup_retry = ((delay & 0x0f) << 4) | (count & 0x0f);
     return nrf24_hal_write_reg(radio, NRF24_REG_SETUP_RETR, &setup_retry, 1);
 }
@@ -373,7 +371,7 @@ nrf24_status_t nrf24_set_channel(nrf24_handle_t * radio, const uint8_t ch)
         return NRF24_INVALID_CFG;
 
     radio->freq_ch = ch;
-    
+
     uint8_t rf_ch = ch & 0x7f;
     return nrf24_hal_write_reg(radio, NRF24_REG_RF_CH, &rf_ch, 1);
 }
@@ -385,7 +383,7 @@ nrf24_status_t nrf24_set_data_rate(nrf24_handle_t * radio, const nrf24_datarate_
 
     if (rate > NRF24_DATARATE_2MBPS)
         return NRF24_INVALID_CFG;
-        
+
     radio->data_rate = rate;
 
     // read current power configurations and keep them
@@ -407,7 +405,7 @@ nrf24_status_t nrf24_set_power_level(nrf24_handle_t * radio, const nrf24_power_t
 
     if (power > NRF24_TX_PWR_0DBM)
         return NRF24_INVALID_CFG;
-    
+
     radio->power_level = power;
 
     // read current data rate configurations and keep them
@@ -468,6 +466,7 @@ nrf24_status_t nrf24_carrier_detect(const nrf24_handle_t * radio, uint8_t * carr
 /**************************************** Helper Functions *******************************************/
 static void nrf24_standby(const nrf24_handle_t * radio)
 {
+    // read first to not modify other bits in reg
     nrf24_hal_disable(radio);
     uint8_t pwr_up = NRF24_BIT_PWR_UP | NRF24_BIT_EN_CRC;
     nrf24_hal_write_reg(radio, NRF24_REG_CONFIG, &pwr_up, 1);
@@ -475,6 +474,7 @@ static void nrf24_standby(const nrf24_handle_t * radio)
 
 static void nrf24_standby_rx(const nrf24_handle_t * radio)
 {
+    // read first to not modify other bits in reg
     nrf24_hal_disable(radio);
     uint8_t pwr_up = NRF24_BIT_PWR_UP | NRF24_BIT_PRIM_RX | NRF24_BIT_EN_CRC;
     nrf24_hal_write_reg(radio, NRF24_REG_CONFIG, &pwr_up, 1);
@@ -490,8 +490,9 @@ static void nrf24_write_rx_addr(const nrf24_handle_t * radio, const nrf24_pipe_t
     // pipes 0 and 1 require 5 byte addresses
     if (pipe->num == NRF24_PIPE0 || pipe->num == NRF24_PIPE1)
     {
-        uint8_t rx_addr[5] = {  (uint8_t)pipe->address, (uint8_t)(pipe->address >> 8), (uint8_t)(pipe->address >> 16),
-                                (uint8_t)(pipe->address >> 24), (uint8_t)(pipe->address >> 32)};
+        uint8_t rx_addr[5] = {
+            (uint8_t)pipe->address, (uint8_t)(pipe->address >> 8), (uint8_t)(pipe->address >> 16), (uint8_t)(pipe->address >> 24), (uint8_t)(pipe->address >> 32)
+        };
 
         nrf24_hal_write_reg(radio, NRF24_REG_RX_ADDR_P0 + pipe->num, rx_addr, sizeof(rx_addr));
     }
@@ -510,7 +511,7 @@ static void nrf24_read_rx_pipe_num(const nrf24_handle_t * radio, nrf24_pipe_num_
     uint8_t status;
     nrf24_read_status(radio, &status);
 
-    *pipe = (status >> 1) & 0x07;       // extract pipe number from status register
+    *pipe = (status >> 1) & 0x07; // extract pipe number from status register
 }
 
 static void nrf24_read_payload_width(const nrf24_handle_t * radio, const nrf24_pipe_num_t pipe, uint8_t * width)

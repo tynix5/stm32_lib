@@ -1,4 +1,3 @@
-
 #ifndef NRF24_H_
 #define NRF24_H_
 
@@ -6,18 +5,19 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include <stdbool.h>
+#include <string.h>
 
-// #ifdef STM32L432xx
-// #include "stm32l4xx_hal.h"
-// #elif defined(STM32F446xx)
-// #include "stm32f4xx_hal.h"
-// #endif
+#ifdef STM32L432xx
+#include "stm32l4xx_hal.h"
+#elif defined(STM32F446xx)
+#include "stm32f4xx_hal.h"
+#endif
 
-#define RADIO_MODE_TX          1
-#define RADIO_MODE_RX          0
+#define RADIO_MODE_TX 1
+#define RADIO_MODE_RX 0
 
-#define NRF24_MAX_PIPES         6
-#define NRF24_MAX_PKT_SIZE_BYTES    32
+#define NRF24_MAX_PIPES          6
+#define NRF24_MAX_PKT_SIZE_BYTES 32
 
 /************************* Commands *************************/
 #define NRF24_R_REGISTER         0
@@ -35,98 +35,99 @@
 /************************************************************/
 
 /********************* Register Address *********************/
-#define NRF24_REG_CONFIG         0x00
-#define NRF24_REG_EN_AA          0x01
-#define NRF24_REG_EN_RXADDR      0x02
-#define NRF24_REG_SETUP_AW       0x03
-#define NRF24_REG_SETUP_RETR     0x04
-#define NRF24_REG_RF_CH          0x05
-#define NRF24_REG_RF_SETUP       0x06
-#define NRF24_REG_STATUS         0x07
-#define NRF24_REG_OBSERVE_TX     0x08
-#define NRF24_REG_CD             0x09
-#define NRF24_REG_RX_ADDR_P0     0x0a
-#define NRF24_REG_RX_ADDR_P1     0x0b
-#define NRF24_REG_RX_ADDR_P2     0x0c
-#define NRF24_REG_RX_ADDR_P3     0x0d
-#define NRF24_REG_RX_ADDR_P4     0x0e
-#define NRF24_REG_RX_ADDR_P5     0x0f
-#define NRF24_REG_TX_ADDR        0x10
-#define NRF24_REG_RX_PW_P0       0x11
-#define NRF24_REG_RX_PW_P1       0x12
-#define NRF24_REG_RX_PW_P2       0x13
-#define NRF24_REG_RX_PW_P3       0x14
-#define NRF24_REG_RX_PW_P4       0x15
-#define NRF24_REG_RX_PW_P5       0x16
-#define NRF24_REG_FIFO_STATUS    0x17
-#define NRF24_REG_DYNPD          0x1c
-#define NRF24_REG_FEATURE        0x1d
+#define NRF24_REG_CONFIG      0x00
+#define NRF24_REG_EN_AA       0x01
+#define NRF24_REG_EN_RXADDR   0x02
+#define NRF24_REG_SETUP_AW    0x03
+#define NRF24_REG_SETUP_RETR  0x04
+#define NRF24_REG_RF_CH       0x05
+#define NRF24_REG_RF_SETUP    0x06
+#define NRF24_REG_STATUS      0x07
+#define NRF24_REG_OBSERVE_TX  0x08
+#define NRF24_REG_CD          0x09
+#define NRF24_REG_RX_ADDR_P0  0x0a
+#define NRF24_REG_RX_ADDR_P1  0x0b
+#define NRF24_REG_RX_ADDR_P2  0x0c
+#define NRF24_REG_RX_ADDR_P3  0x0d
+#define NRF24_REG_RX_ADDR_P4  0x0e
+#define NRF24_REG_RX_ADDR_P5  0x0f
+#define NRF24_REG_TX_ADDR     0x10
+#define NRF24_REG_RX_PW_P0    0x11
+#define NRF24_REG_RX_PW_P1    0x12
+#define NRF24_REG_RX_PW_P2    0x13
+#define NRF24_REG_RX_PW_P3    0x14
+#define NRF24_REG_RX_PW_P4    0x15
+#define NRF24_REG_RX_PW_P5    0x16
+#define NRF24_REG_FIFO_STATUS 0x17
+#define NRF24_REG_DYNPD       0x1c
+#define NRF24_REG_FEATURE     0x1d
 /************************************************************/
 
 /*********************** Bit Mapping ************************/
 // CONFIG
-#define NRF24_BIT_MASK_RX_DR     0x40
-#define NRF24_BIT_MASK_TX_DS     0x20
-#define NRF24_BIT_MASK_MAX_RT    0x10
-#define NRF24_BIT_EN_CRC         0x08
-#define NRF24_BIT_CRCO           0x04
-#define NRF24_BIT_PWR_UP         0x02
-#define NRF24_BIT_PRIM_RX        0x01
+#define NRF24_BIT_MASK_RX_DR  0x40
+#define NRF24_BIT_MASK_TX_DS  0x20
+#define NRF24_BIT_MASK_MAX_RT 0x10
+#define NRF24_BIT_EN_CRC      0x08
+#define NRF24_BIT_CRCO        0x04
+#define NRF24_BIT_PWR_UP      0x02
+#define NRF24_BIT_PRIM_RX     0x01
 
 // EN_AA
-#define NRF24_BIT_ENAA_P5        0x20
-#define NRF24_BIT_ENAA_P4        0x10
-#define NRF24_BIT_ENAA_P3        0x08
-#define NRF24_BIT_ENAA_P2        0x04
-#define NRF24_BIT_ENAA_P1        0x02
-#define NRF24_BIT_ENAA_P0        0x01
+#define NRF24_BIT_ENAA_P5 0x20
+#define NRF24_BIT_ENAA_P4 0x10
+#define NRF24_BIT_ENAA_P3 0x08
+#define NRF24_BIT_ENAA_P2 0x04
+#define NRF24_BIT_ENAA_P1 0x02
+#define NRF24_BIT_ENAA_P0 0x01
 
 // EN_RXADDR
-#define NRF24_BIT_ERX_P5         0x20
-#define NRF24_BIT_ERX_P4         0x10
-#define NRF24_BIT_ERX_P3         0x08
-#define NRF24_BIT_ERX_P2         0x04
-#define NRF24_BIT_ERX_P1         0x02
-#define NRF24_BIT_ERX_P0         0x01
+#define NRF24_BIT_ERX_P5 0x20
+#define NRF24_BIT_ERX_P4 0x10
+#define NRF24_BIT_ERX_P3 0x08
+#define NRF24_BIT_ERX_P2 0x04
+#define NRF24_BIT_ERX_P1 0x02
+#define NRF24_BIT_ERX_P0 0x01
 
 // SETUP_AW
-#define NRF24_BIT_AW_3           0x01
-#define NRF24_BIT_AW_4           0x02
-#define NRF24_BIT_AW_5           0x01 | 0x02
+#define NRF24_BIT_AW_3 0x01
+#define NRF24_BIT_AW_4 0x02
+#define NRF24_BIT_AW_5 0x01 | 0x02
 
 // RF_SETUP
-#define NRF24_BIT_PLL_LOCK       0x10
-#define NRF24_BIT_RF_DR          0x08
-#define NRF24_BIT_PWR_1          0x04
-#define NRF24_BIT_PWR_0          0x02
-#define NRF24_BIT_LNA_HCURR      0x01
+#define NRF24_BIT_PLL_LOCK  0x10
+#define NRF24_BIT_RF_DR     0x08
+#define NRF24_BIT_PWR_1     0x04
+#define NRF24_BIT_PWR_0     0x02
+#define NRF24_BIT_LNA_HCURR 0x01
 
-#define NRF24_BIT_RF_DR_SHIFT    3
-#define NRF24_BIT_RF_PWR_SHIFT   1
+#define NRF24_BIT_RF_DR_SHIFT  3
+#define NRF24_BIT_RF_PWR_SHIFT 1
 
 // STATUS
-#define NRF24_BIT_RX_DR          0x40
-#define NRF24_BIT_TX_DS          0x20
-#define NRF24_BIT_MAX_RT         0x10
-#define NRF24_BIT_RX_P_NO        0x02 | 0x04 | 0x08
-#define NRF24_BIT_TX_FULL        0x01
+#define NRF24_BIT_RX_DR   0x40
+#define NRF24_BIT_TX_DS   0x20
+#define NRF24_BIT_MAX_RT  0x10
+#define NRF24_BIT_RX_P_NO 0x02 | 0x04 | 0x08
+#define NRF24_BIT_TX_FULL 0x01
 
 // DYNPD
-#define NRF24_BIT_DPL_P5         0x20
-#define NRF24_BIT_DPL_P4         0x10
-#define NRF24_BIT_DPL_P3         0x08
-#define NRF24_BIT_DPL_P2         0x04
-#define NRF24_BIT_DPL_P1         0x02
-#define NRF24_BIT_DPL_P0         0x01
+#define NRF24_BIT_DPL_P5 0x20
+#define NRF24_BIT_DPL_P4 0x10
+#define NRF24_BIT_DPL_P3 0x08
+#define NRF24_BIT_DPL_P2 0x04
+#define NRF24_BIT_DPL_P1 0x02
+#define NRF24_BIT_DPL_P0 0x01
 
 // FEATURE
-#define NRF24_BIT_EN_DPL         0x04
-#define NRF24_BIT_EN_ACK_PAY     0x02
-#define NRF24_BIT_EN_DYN_ACK     0x01
+#define NRF24_BIT_EN_DPL     0x04
+#define NRF24_BIT_EN_ACK_PAY 0x02
+#define NRF24_BIT_EN_DYN_ACK 0x01
 /************************************************************/
 
 // nRF24L01 return types
-typedef enum {
+typedef enum
+{
     NRF24_OK = 0,
     NRF24_INVALID_CFG,
     NRF24_INVALID_PKT,
@@ -138,20 +139,23 @@ typedef enum {
 } nrf24_status_t;
 
 // RF air data rates
-typedef enum : uint8_t {
+typedef enum : uint8_t
+{
     NRF24_DATARATE_1MBPS = 0,
     NRF24_DATARATE_2MBPS
 } nrf24_datarate_t;
 
 // RF output power in TX mode
-typedef enum : uint8_t {
+typedef enum : uint8_t
+{
     NRF24_TX_PWR_M18DBM = 0,
     NRF24_TX_PWR_M12DBM,
     NRF24_TX_PWR_M6DBM,
     NRF24_TX_PWR_0DBM
 } nrf24_power_t;
 
-typedef enum : uint8_t {
+typedef enum : uint8_t
+{
     NRF24_RETRY_CNT_DISABLE = 0,
     NRF24_RETRY_CNT_1,
     NRF24_RETRY_CNT_2,
@@ -171,7 +175,8 @@ typedef enum : uint8_t {
 } nrf24_retry_cnt_t;
 
 // retry delay between failed sends
-typedef enum : uint8_t {
+typedef enum : uint8_t
+{
     NRF24_RETRY_DELAY_250 = 0,
     NRF24_RETRY_DELAY_500,
     NRF24_RETRY_DELAY_750,
@@ -191,20 +196,23 @@ typedef enum : uint8_t {
 } nrf24_retry_delay_t;
 
 // static or dynamic payload lengths
-typedef enum {
+typedef enum : uint8_t
+{
     NRF24_PAYLOAD_STATIC = 0,
     NRF24_PAYLOAD_DYNAMIC,
 } nrf24_payload_type_t;
 
 // auto-acknowledgement behavior selection
-typedef enum {
+typedef enum : uint8_t
+{
     NRF24_AUTO_ACK_DISABLE = 0,
     NRF24_AUTO_ACK_ENABLE,
-    NRF24_AUTO_ACK_PAYLOAD,     // auto-ack + optional payload
+    NRF24_AUTO_ACK_PAYLOAD, // auto-ack + optional payload
 } nrf24_ack_t;
 
 // address of reading pipes
-typedef enum {
+typedef enum : uint8_t
+{
     NRF24_PIPE0 = 0,
     NRF24_PIPE1,
     NRF24_PIPE2,
@@ -214,49 +222,51 @@ typedef enum {
 } nrf24_pipe_num_t;
 
 // address length (bytes) selection
-typedef enum {
+typedef enum : uint8_t
+{
     NRF24_ADDR_W_3 = 1,
     NRF24_ADDR_W_4,
     NRF24_ADDR_W_5,
 } nrf24_addr_width_t;
 
-typedef struct {
+typedef struct
+{
 
-    uint64_t address;       // address of RX pipe (5 bytes)
+    uint64_t address;                  // address of RX pipe (5 bytes)
 
-    nrf24_payload_type_t payload_type;  // dynamic or static payloads
-    nrf24_ack_t ack;        // enable/disable acks, optional acks with payload
+    nrf24_payload_type_t payload_type; // dynamic or static payloads
+    nrf24_ack_t ack;                   // enable/disable acks, optional acks with payload
 
-    uint8_t payload_length;     // only applies to NRF24_PAYLOAD_STATIC
+    uint8_t payload_length;            // only applies to NRF24_PAYLOAD_STATIC
 
-    nrf24_pipe_num_t num;   // pipe number
+    nrf24_pipe_num_t num;              // pipe number
 
 } nrf24_pipe_t;
 
 typedef struct
 {
-    SPI_HandleTypeDef * hspi;        // SPI handle
+    SPI_HandleTypeDef * hspi;   // SPI handle
 
-    void (*delay_us)(uint32_t);      // pointer to delay function
-    void (*delay_ms)(uint32_t);      // pointer to delay function
+    void (*delay_us)(uint32_t); // pointer to delay function
+    void (*delay_ms)(uint32_t); // pointer to delay function
 
-    GPIO_TypeDef * ce_gpio;          // chip enable GPIO
-    GPIO_TypeDef * cs_gpio;          // chip select GPIO
-    uint16_t ce_pin;                 // chip enable pin
-    uint16_t cs_pin;                 // chip select pin
+    GPIO_TypeDef * ce_gpio;     // chip enable GPIO
+    GPIO_TypeDef * cs_gpio;     // chip select GPIO
+    uint16_t ce_pin;            // chip enable pin
+    uint16_t cs_pin;            // chip select pin
 
-    uint8_t freq_ch;                 // frequency channel
-    nrf24_datarate_t data_rate;        // data rate
-    nrf24_power_t power_level;         // transmitting power level
+    uint8_t freq_ch;            // frequency channel
+    nrf24_datarate_t data_rate; // data rate
+    nrf24_power_t power_level;  // transmitting power level
     struct
     {
-        bool rx_dr_en;  // RX data received
-        bool tx_ds_en;  // TX data sent
-        bool max_rt_en; // Max retries
+        bool rx_dr_en;          // RX data received
+        bool tx_ds_en;          // TX data sent
+        bool max_rt_en;         // Max retries
     } nrf24_irqs_t;
-    
-    nrf24_pipe_t _pipes[6];      // stored RX pipe information
-    bool _initialized;              // has nRF24L01 been initalized?
+
+    nrf24_pipe_t _pipes[6];     // stored RX pipe information
+    bool _initialized;          // has nRF24L01 been initalized?
 
 } nrf24_handle_t;
 

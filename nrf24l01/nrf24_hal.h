@@ -3,23 +3,23 @@
 
 #include "nrf24.h"
 
-#define SPI_TIMEOUT_MS  5
+#define SPI_TIMEOUT_MS 5
 
 /* Pull CS pin low */
 /* [input] radio - nRF24L01 structure handle */
-inline void nrf24_hal_select(const nrf24_handle_t * radio);
+void nrf24_hal_select(const nrf24_handle_t * radio);
 
 /* Pull CS pin high */
 /* [input] radio - nRF24L01 structure handle */
-inline void nrf24_hal_deselect(const nrf24_handle_t * radio);
+void nrf24_hal_deselect(const nrf24_handle_t * radio);
 
 /* Pull CE pin high */
 /* [input] radio - nRF24L01 structure handle */
-inline void nrf24_hal_enable(const nrf24_handle_t * radio);
+void nrf24_hal_enable(const nrf24_handle_t * radio);
 
 /* Pull CE pin low */
 /* [input] radio - nRF24L01 structure handle */
-inline void nrf24_hal_disable(const nrf24_handle_t * radio);
+void nrf24_hal_disable(const nrf24_handle_t * radio);
 
 /* Write bytes to a register over SPI */
 /* [input] radio - nRF24L01 structure handle */
@@ -27,7 +27,7 @@ inline void nrf24_hal_disable(const nrf24_handle_t * radio);
 /* [input] data - register data */
 /* [input] dlen - size of data in bytes */
 /* [return] NRF24_OK if SPI write successful */
-nrf24_status_t nrf24_hal_write_reg(const nrf24_handle_t * radio, const uint8_t reg, const uint8_t * data, const uint8_t dlen);
+nrf24_status_t nrf24_hal_write_reg(const nrf24_handle_t * radio, uint8_t reg, const uint8_t * data, const uint8_t dlen);
 
 /* Read byte from a register */
 /* [input] radio - nRF24L01 structure handle */
@@ -70,6 +70,5 @@ nrf24_status_t nrf24_hal_read_payload(const nrf24_handle_t * radio, const uint8_
 /* [input] alen - size of ack in bytes */
 /* [return] NRF24_OK if SPI write successful */
 nrf24_status_t nrf24_hal_write_ack(const nrf24_handle_t * radio, const uint8_t * ack, const uint8_t alen);
-
 
 #endif

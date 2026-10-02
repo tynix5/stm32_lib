@@ -43,6 +43,14 @@ nrf24_status_t nrf24_hal_read_reg(const nrf24_handle_t * radio, const uint8_t re
 /* [return] NRF24_OK if SPI read successful */
 nrf24_status_t nrf24_hal_write_cmd(const nrf24_handle_t * radio, const uint8_t reg, uint8_t * response);
 
+/* Write to command register with data bytes */
+/* [input] radio - nRF24L01 structure handle */
+/* [input] reg - nRF24L01 register */
+/* [input] data - register data */
+/* [input] dlen - size of data in bytes */
+/* [return] NRF24_OK if SPI write successful */
+nrf24_status_t nrf24_hal_write_cmd_data(const nrf24_handle_t * radio, const uint8_t reg, const uint8_t * data, uint8_t dlen);
+
 /* Write to TX buffer with ACKs enabled */
 /* [input] radio - nRF24L01 structure handle */
 /* [input] pkt - data sent to TX buffer */

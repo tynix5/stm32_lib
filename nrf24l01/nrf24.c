@@ -17,6 +17,10 @@ static void nrf24_standby(const nrf24_handle_t * radio);
 /* [input] radio - nRF24L01 structure handle */
 static void nrf24_standby_rx(const nrf24_handle_t * radio);
 
+/* Activate features R_RX_PL_WID, W_ACK_PAYLOAD, W_TX_PAYLOAD_NOACK */
+/* [input] radio - nRF24L01 structure handle */
+static void nrf24_activate_features(const nrf24_handle_t * radio);
+
 /* Set address width of RX pipes */
 /* [input] radio - nRF24L01 structure handle */
 /* [input] width - address width in bytes */
@@ -142,9 +146,7 @@ nrf24_status_t nrf24_open_rx_pipe(const nrf24_handle_t * radio, const nrf24_pipe
     nrf24_hal_write_reg(radio, NRF24_REG_EN_AA, &en_aa, 1);
 
     // enable writes to any special function register
-    uint8_t activate = 0x73;
-    nrf24_hal_write_reg(radio, NRF24_ACTIVATE, &activate, 1);
-
+    nrf24_activate_features(radio);
     nrf24_hal_write_reg(radio, NRF24_REG_FEATURE, &curr_features, 1);
 
     // enable reading pipe
@@ -171,7 +173,7 @@ nrf24_status_t nrf24_open_tx_pipe(const nrf24_handle_t * radio, const uint64_t a
         return NRF24_NULL_POINTER;
 
     // RX_ADDR_P0 must equal the TX address in order to handle automatic acknowledgements
-    uint8_t tx_addr[5] = { (uint8_t)address, (uint8_t)(address >> 8), (uint8_t)(address >> 16), (uint8_t)(address >> 24), (uint8_t)(address >> 24) };
+    uint8_t tx_addr[5] = { (uint8_t)address, (uint8_t)(address >> 8), (uint8_t)(address >> 16), (uint8_t)(address >> 24), (uint8_t)(address >> 32) };
 
     return nrf24_hal_write_reg(radio, NRF24_REG_TX_ADDR, tx_addr, sizeof(tx_addr));
 }
@@ -319,7 +321,10 @@ nrf24_status_t nrf24_receive(const nrf24_handle_t * radio, const uint8_t * ack, 
     if (!radio->_initialized)
         return NRF24_NOT_INIT;
 
-    nrf24_hal_disable(radio);
+    /**************************************************************************************************************************************************************************************************** */
+    // figure out why there are weird intermittent delays
+    // nrf24_hal_disable(radio);
+    /**************************************************************************************************************************************************************************************************** */
     nrf24_read_rx_pipe_num(radio, pipe_num);          // get pipe from which data was received
     nrf24_read_payload_width(radio, *pipe_num, plen); // read payload width based on pipe being dynamic/static
 
@@ -394,7 +399,7 @@ nrf24_status_t nrf24_set_data_rate(nrf24_handle_t * radio, const nrf24_datarate_
         return status;
 
     // update data rate
-    rf_setup = (rf_setup & 0xf7) | (rate << NRF24_BIT_RF_DR_SHIFT);
+    rf_setup = (rf_setup & 0x07) | (rate << NRF24_BIT_RF_DR_SHIFT);
     return nrf24_hal_write_reg(radio, NRF24_REG_RF_SETUP, &rf_setup, 1);
 }
 
@@ -416,7 +421,7 @@ nrf24_status_t nrf24_set_power_level(nrf24_handle_t * radio, const nrf24_power_t
         return status;
 
     // update power level
-    rf_setup = (rf_setup & 0xf9) | (power << NRF24_BIT_RF_PWR_SHIFT);
+    rf_setup = (rf_setup & 0x09) | (power << NRF24_BIT_RF_PWR_SHIFT);
     return nrf24_hal_write_reg(radio, NRF24_REG_RF_SETUP, &rf_setup, 1);
 }
 
@@ -466,18 +471,33 @@ nrf24_status_t nrf24_carrier_detect(const nrf24_handle_t * radio, uint8_t * carr
 /**************************************** Helper Functions *******************************************/
 static void nrf24_standby(const nrf24_handle_t * radio)
 {
-    // read first to not modify other bits in reg
     nrf24_hal_disable(radio);
-    uint8_t pwr_up = NRF24_BIT_PWR_UP | NRF24_BIT_EN_CRC;
-    nrf24_hal_write_reg(radio, NRF24_REG_CONFIG, &pwr_up, 1);
+
+    // do not modify other bits in config register
+    uint8_t config;
+    nrf24_hal_read_reg(radio, NRF24_REG_CONFIG, &config);
+
+    config |= NRF24_BIT_PWR_UP | NRF24_BIT_EN_CRC;
+    config &= ~NRF24_BIT_PRIM_RX;
+    nrf24_hal_write_reg(radio, NRF24_REG_CONFIG, &config, 1);
 }
 
 static void nrf24_standby_rx(const nrf24_handle_t * radio)
 {
-    // read first to not modify other bits in reg
     nrf24_hal_disable(radio);
-    uint8_t pwr_up = NRF24_BIT_PWR_UP | NRF24_BIT_PRIM_RX | NRF24_BIT_EN_CRC;
-    nrf24_hal_write_reg(radio, NRF24_REG_CONFIG, &pwr_up, 1);
+
+    // do not modify other bits in config register
+    uint8_t config;
+    nrf24_hal_read_reg(radio, NRF24_REG_CONFIG, &config);
+
+    config |= NRF24_BIT_PWR_UP | NRF24_BIT_EN_CRC | NRF24_BIT_PRIM_RX;
+    nrf24_hal_write_reg(radio, NRF24_REG_CONFIG, &config, 1);
+}
+
+static void nrf24_activate_features(const nrf24_handle_t * radio)
+{
+    uint8_t activate = 0x73;
+    nrf24_hal_write_cmd_data(radio, NRF24_ACTIVATE, &activate, 1);
 }
 
 static void nrf24_set_address_width(const nrf24_handle_t * radio, const nrf24_addr_width_t width)

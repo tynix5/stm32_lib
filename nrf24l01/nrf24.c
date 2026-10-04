@@ -321,17 +321,24 @@ nrf24_status_t nrf24_receive(const nrf24_handle_t * radio, const uint8_t * ack, 
     if (!radio->_initialized)
         return NRF24_NOT_INIT;
 
-    /**************************************************************************************************************************************************************************************************** */
-    // figure out why there are weird intermittent delays
-    // nrf24_hal_disable(radio);
-    /**************************************************************************************************************************************************************************************************** */
+    nrf24_hal_disable(radio);
     nrf24_read_rx_pipe_num(radio, pipe_num);          // get pipe from which data was received
+
+    // if trying to receive data when FIFO is empty...
+    if (*pipe_num == NRF24_PIPE_EMPTY)
+    {
+        *plen = 0;
+        nrf24_clear_status(radio);
+        return NRF24_INVALID_PKT;
+    }
+
     nrf24_read_payload_width(radio, *pipe_num, plen); // read payload width based on pipe being dynamic/static
 
     // if an invalid packet, discard it and flush FIFO
     if (*plen > NRF24_MAX_PKT_SIZE_BYTES)
     {
         nrf24_flush_rx(radio);
+        nrf24_clear_status(radio);
         *plen = 0;
         return NRF24_INVALID_PKT;
     }
@@ -458,6 +465,14 @@ nrf24_status_t nrf24_clear_status(const nrf24_handle_t * radio)
 
     uint8_t clear_status = NRF24_BIT_RX_DR | NRF24_BIT_TX_DS | NRF24_BIT_MAX_RT;
     return nrf24_hal_write_reg(radio, NRF24_REG_STATUS, &clear_status, 1);
+}
+
+nrf24_status_t nrf24_read_fifo_status(const nrf24_handle_t * radio, uint8_t * status)
+{
+    if (radio->hspi == NULL)
+        return NRF24_NULL_POINTER;
+
+    return nrf24_hal_read_reg(radio, NRF24_REG_FIFO_STATUS, status);
 }
 
 nrf24_status_t nrf24_carrier_detect(const nrf24_handle_t * radio, uint8_t * carrier)

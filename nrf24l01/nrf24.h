@@ -219,6 +219,7 @@ typedef enum : uint8_t
     NRF24_PIPE3,
     NRF24_PIPE4,
     NRF24_PIPE5,
+    NRF24_PIPE_EMPTY = 7,
 } nrf24_pipe_num_t;
 
 // address length (bytes) selection
@@ -359,6 +360,12 @@ nrf24_status_t nrf24_read_status(const nrf24_handle_t * radio, uint8_t * status)
 /* [input] radio - nRF24L01 structure handle */
 /* [return] NRF24_OK if successful SPI write */
 nrf24_status_t nrf24_clear_status(const nrf24_handle_t * radio);
+
+/* Read from FIFO status register */
+/* [input] radio - nRF24L01 structure handle */
+/* [output] status - output of FIFO status register */
+/* [return] NRF24_OK if successful SPI write */
+nrf24_status_t nrf24_read_fifo_status(const nrf24_handle_t * radio, uint8_t * status);
 
 /* Carrier detect */
 /* [input] radio - nRF24L01 structure handle */

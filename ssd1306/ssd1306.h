@@ -79,8 +79,8 @@
 
 typedef enum
 {
-    SSD1306_PIX_WHITE = 0,
-    SSD1306_PIX_BLACK
+    SSD1306_PIX_BLACK = 0,
+    SSD1306_PIX_WHITE,
 
 } ssd1306_pix_color_t;
 

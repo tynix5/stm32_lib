@@ -251,9 +251,8 @@ ssd1306_status_t ssd1306_draw_bitmap(ssd1306_handle_t * holed, uint8_t x, uint8_
 
 ssd1306_status_t ssd1306_clear(ssd1306_handle_t * holed)
 {
-    for (uint8_t i = 0; i < holed->res_y / 8; i++)
-        for (uint8_t j = 0; j < holed->res_x; j++)
-            ssd1306_write_buff_col(holed, j, i, SSD1306_PIX_BLACK);
+    // copy all black pixels into the frame buffer
+    memset(holed->frame_buff, SSD1306_PIX_BLACK, holed->res_x * holed->res_y / 8);
 
     return SSD1306_OK;
 }

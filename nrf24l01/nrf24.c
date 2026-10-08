@@ -265,7 +265,9 @@ nrf24_status_t nrf24_listen(const nrf24_handle_t * radio, const uint32_t timeout
     if (!radio->_initialized)
         return NRF24_NOT_INIT;
 
+    
     // receiver --> PRIM_RX = 1, CE = 1
+    nrf24_clear_status(radio);
     nrf24_standby_rx(radio);
 
     // wait >130us for RX settling
@@ -307,6 +309,7 @@ nrf24_status_t nrf24_listen_it(const nrf24_handle_t * radio)
 
     // move to receiver mode and then exit (waiting for pin interrupts)
     // receiver --> PRIM_RX = 1, CE = 1
+    nrf24_clear_status(radio);
     nrf24_standby_rx(radio);
     nrf24_hal_enable(radio);
 

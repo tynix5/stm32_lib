@@ -3,7 +3,7 @@
 
 #include "nrf24.h"
 
-#define SPI_TIMEOUT_MS 5
+#define NRF24_SPI_TIMEOUT_MS 5
 
 /* Pull CS pin low */
 /* [input] radio - nRF24L01 structure handle */

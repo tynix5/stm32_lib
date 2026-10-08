@@ -32,8 +32,8 @@ nrf24_status_t nrf24_hal_write_reg(const nrf24_handle_t * radio, uint8_t reg, co
     reg |= NRF24_W_REGISTER;
 
     nrf24_hal_select(radio);
-    HAL_SPI_Transmit(radio->hspi, &reg, 1, SPI_TIMEOUT_MS);
-    HAL_SPI_Transmit(radio->hspi, data, dlen, SPI_TIMEOUT_MS);
+    HAL_SPI_Transmit(radio->hspi, &reg, 1, NRF24_SPI_TIMEOUT_MS);
+    HAL_SPI_Transmit(radio->hspi, data, dlen, NRF24_SPI_TIMEOUT_MS);
     nrf24_hal_deselect(radio);
 
     return NRF24_OK;
@@ -45,8 +45,8 @@ nrf24_status_t nrf24_hal_read_reg(const nrf24_handle_t * radio, const uint8_t re
         return NRF24_NULL_POINTER;
 
     nrf24_hal_select(radio);
-    HAL_SPI_Transmit(radio->hspi, &reg, 1, SPI_TIMEOUT_MS);
-    HAL_SPI_Receive(radio->hspi, data, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_Transmit(radio->hspi, &reg, 1, NRF24_SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(radio->hspi, data, 1, NRF24_SPI_TIMEOUT_MS);
     nrf24_hal_deselect(radio);
 
     return NRF24_OK;
@@ -58,7 +58,7 @@ nrf24_status_t nrf24_hal_write_cmd(const nrf24_handle_t * radio, const uint8_t r
         return NRF24_NULL_POINTER;
 
     nrf24_hal_select(radio);
-    HAL_SPI_TransmitReceive(radio->hspi, &reg, response, 1, SPI_TIMEOUT_MS);
+    HAL_SPI_TransmitReceive(radio->hspi, &reg, response, 1, NRF24_SPI_TIMEOUT_MS);
     nrf24_hal_deselect(radio);
 
     return NRF24_OK;
@@ -70,8 +70,8 @@ nrf24_status_t nrf24_hal_write_cmd_data(const nrf24_handle_t * radio, const uint
         return NRF24_NULL_POINTER;
 
     nrf24_hal_select(radio);
-    HAL_SPI_Transmit(radio->hspi, &reg, 1, SPI_TIMEOUT_MS);
-    HAL_SPI_Transmit(radio->hspi, data, dlen, SPI_TIMEOUT_MS);
+    HAL_SPI_Transmit(radio->hspi, &reg, 1, NRF24_SPI_TIMEOUT_MS);
+    HAL_SPI_Transmit(radio->hspi, data, dlen, NRF24_SPI_TIMEOUT_MS);
     nrf24_hal_deselect(radio);
 
     return NRF24_OK;
@@ -92,8 +92,8 @@ nrf24_status_t nrf24_hal_read_payload(const nrf24_handle_t * radio, const uint8_
     uint8_t cmd = NRF24_R_RX_PAYLOAD;
 
     nrf24_hal_select(radio);
-    HAL_SPI_Transmit(radio->hspi, &cmd, 1, SPI_TIMEOUT_MS);
-    HAL_SPI_Receive(radio->hspi, pkt, plen, SPI_TIMEOUT_MS);
+    HAL_SPI_Transmit(radio->hspi, &cmd, 1, NRF24_SPI_TIMEOUT_MS);
+    HAL_SPI_Receive(radio->hspi, pkt, plen, NRF24_SPI_TIMEOUT_MS);
     nrf24_hal_deselect(radio);
 
     return NRF24_OK;

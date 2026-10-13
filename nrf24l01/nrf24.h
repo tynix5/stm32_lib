@@ -273,16 +273,19 @@ typedef struct
 
 /* Power on, clear previous states, set retransmit, power level, and enable interrupts */
 /* [in/out] radio - nRF24L01 structure handle */
+/* [return] NRF24_OK if successful NRF24 initialization */
 nrf24_status_t nrf24_init(nrf24_handle_t * radio);
 
 /* Enable a reading pipe on 1 of the 6 available pipes */
 /* [in/out] radio - nRF24L01 structure handle */
 /* [input] pipe - RX data pipe structure */
+/* [return] NRF24_OK if successful SPI write */
 nrf24_status_t nrf24_open_rx_pipe(const nrf24_handle_t * radio, const nrf24_pipe_t * pipe);
 
 /* Set the TX pipe address */
 /* [input] radio - nRF24L01 structure handle */
 /* [input] address - TX pipe address */
+/* [return] NRF24_OK if successful SPI write */
 nrf24_status_t nrf24_open_tx_pipe(const nrf24_handle_t * radio, const uint64_t address);
 
 /* Send a packet and if expecting an ack payload, return one */
@@ -292,6 +295,7 @@ nrf24_status_t nrf24_open_tx_pipe(const nrf24_handle_t * radio, const uint64_t a
 /* [input] expect_ack - true if expecting an ack with a payload, false otherwise */
 /* [output] ack - received ack payload, not populated if none received */
 /* [output] alen -  size of received ack payload in bytes */
+/* [return] NRF24_OK if successful send and ack receive */
 nrf24_status_t nrf24_send(const nrf24_handle_t * radio, const uint8_t * pkt, const uint8_t plen, const bool expect_ack, uint8_t * ack, uint8_t * alen);
 
 /* Listen for a timed period, waiting for a packet to arrive */

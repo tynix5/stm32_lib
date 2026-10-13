@@ -111,5 +111,7 @@ encoder_status_t encoder_register_callback(encoder_handle_t * henc, encoder_call
 int32_t encoder_get_position(encoder_handle_t * henc);
 /* Get current velocity from internal structure */
 float encoder_get_velocity(encoder_handle_t * henc);
+/* Set encoder position manually */
+void encoder_set_position(encoder_handle_t * henc, int32_t new_position);
 
 #endif

@@ -145,3 +145,9 @@ float encoder_get_velocity(encoder_handle_t * henc)
 {
     return henc->_state.velocity;
 }
+
+void encoder_set_position(encoder_handle_t * henc, int32_t new_position)
+{
+    // check for invalid input
+    henc->_state.position = new_position;
+}

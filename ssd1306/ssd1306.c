@@ -34,11 +34,11 @@ ssd1306_status_t ssd1306_init(ssd1306_handle_t * holed)
 
     if (status == SSD1306_OK)
     {
-        holed->_initalized = true;
+        holed->_initialized = true;
         return SSD1306_OK;
     }
 
-    holed->_initalized = false;
+    holed->_initialized = false;
     return status;
 }
 
@@ -259,7 +259,7 @@ ssd1306_status_t ssd1306_clear(ssd1306_handle_t * holed)
 
 ssd1306_status_t ssd1306_update(ssd1306_handle_t * holed)
 {
-    if (!holed->_initalized)
+    if (!holed->_initialized)
         return SSD1306_NOT_INIT;
         
     // do not overwrite TX buffer if in use

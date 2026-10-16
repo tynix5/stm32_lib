@@ -120,7 +120,7 @@ typedef struct
     
     // private variables
     ssd1306_dma_status_t _dma_busy; // is DMA in use
-    bool _initalized;               // has SSD1306 been initialized?
+    bool _initialized;               // has SSD1306 been initialized?
 
 } ssd1306_handle_t;
 

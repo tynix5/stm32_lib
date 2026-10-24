@@ -167,34 +167,34 @@ lsm6ds3tr_status_t lsm6ds3tr_read_accel_mps2(const lsm6ds3tr_handle_t * imu, flo
     z_raw = a[4] | (a[5] << 8);
 
     // convert LSBs to m/s^2
-    uint8_t scale_g;
+    float linear_sens_mg;   // mg/LSB (Table 3)
 
     // determine full scale range (in g's)
     switch (imu->accel_handle_t.fs)
     {
     case LSM6DS3TR_FS_XL_2G:
-        scale_g = 2;
+        linear_sens_mg = 0.061f;
         break;
     case LSM6DS3TR_FS_XL_4G:
-        scale_g = 4;
+        linear_sens_mg = 0.122f;
         break;
     case LSM6DS3TR_FS_XL_8G:
-        scale_g = 8;
+        linear_sens_mg = 0.244f;
         break;
     case LSM6DS3TR_FS_XL_16G:
-        scale_g = 16;
+        linear_sens_mg = 0.488f;
         break;
     default:
         return LSM6DS3TR_INVALID_CFG;
     }
 
     // convert LSBs to G's, then determine acceleration in m/s^2
-    float lsb_to_g = (float)scale_g / SHRT_MAX;
+    float linear_sens_g = linear_sens_mg / 1000.0f;
 
     // LSBs -> G -> M/S^2
-    *a_x = (float)x_raw * lsb_to_g * LSM6DS3TR_CONST_G;
-    *a_y = (float)y_raw * lsb_to_g * LSM6DS3TR_CONST_G;
-    *a_z = (float)z_raw * lsb_to_g * LSM6DS3TR_CONST_G;
+    *a_x = (float)x_raw * linear_sens_g * LSM6DS3TR_CONST_G;
+    *a_y = (float)y_raw * linear_sens_g * LSM6DS3TR_CONST_G;
+    *a_z = (float)z_raw * linear_sens_g * LSM6DS3TR_CONST_G;
 
     return LSM6DS3TR_OK;
 }
@@ -243,32 +243,32 @@ lsm6ds3tr_status_t lsm6ds3tr_read_gyro_radps(const lsm6ds3tr_handle_t * imu, flo
     z_raw = w[4] | (w[5] << 8);
 
     // convert LSBs to radians per second
-    uint16_t scale_dps;
+    float angular_sens_mdps;     // mdps/LSB (Table 3)
 
     switch (imu->gyro_handle_t.fs)
     {
     case LSM6DS3TR_FS_G_245DPS:
-        scale_dps = 245;
+        angular_sens_mdps = 8.75f;
         break;
     case LSM6DS3TR_FS_G_500DPS:
-        scale_dps = 500;
+        angular_sens_mdps = 17.5f;
         break;
     case LSM6DS3TR_FS_G_1000DPS:
-        scale_dps = 1000;
+        angular_sens_mdps = 35.0f;
         break;
     case LSM6DS3TR_FS_G_2000DPS:
-        scale_dps = 2000;
+        angular_sens_mdps = 70.0f;
         break;
     default:
         return LSM6DS3TR_INVALID_CFG;
     }
 
-    float lsb_to_dps = (float)scale_dps / SHRT_MAX;
+    float angular_sens_dps = angular_sens_mdps / 1000.0f;
 
-    // LSBs -> DEG/S -> RAD/S
-    *w_x = (float)x_raw * lsb_to_dps * LSM6DS3TR_DEG_TO_RAD;
-    *w_y = (float)y_raw * lsb_to_dps * LSM6DS3TR_DEG_TO_RAD;
-    *w_z = (float)z_raw * lsb_to_dps * LSM6DS3TR_DEG_TO_RAD;
+    // LSBs -> DEG/S
+    *w_x = (float)x_raw * angular_sens_dps * LSM6DS3TR_DEG_TO_RAD;
+    *w_y = (float)y_raw * angular_sens_dps * LSM6DS3TR_DEG_TO_RAD;
+    *w_z = (float)z_raw * angular_sens_dps * LSM6DS3TR_DEG_TO_RAD;
 
     return LSM6DS3TR_OK;
 }
@@ -295,32 +295,32 @@ lsm6ds3tr_status_t lsm6ds3tr_read_gyro_degps(const lsm6ds3tr_handle_t * imu, flo
     z_raw = w[4] | (w[5] << 8);
 
     // convert LSBs to radians per second
-    uint16_t scale_dps;
+    float angular_sens_mdps;     // mdps/LSB (Table 3)
 
     switch (imu->gyro_handle_t.fs)
     {
     case LSM6DS3TR_FS_G_245DPS:
-        scale_dps = 245;
+        angular_sens_mdps = 8.75f;
         break;
     case LSM6DS3TR_FS_G_500DPS:
-        scale_dps = 500;
+        angular_sens_mdps = 17.5f;
         break;
     case LSM6DS3TR_FS_G_1000DPS:
-        scale_dps = 1000;
+        angular_sens_mdps = 35.0f;
         break;
     case LSM6DS3TR_FS_G_2000DPS:
-        scale_dps = 2000;
+        angular_sens_mdps = 70.0f;
         break;
     default:
         return LSM6DS3TR_INVALID_CFG;
     }
 
-    float lsb_to_dps = (float)scale_dps / SHRT_MAX;
+    float angular_sens_dps = angular_sens_mdps / 1000.0f;
 
-    // LSBs -> DEG/S
-    *w_x = (float)x_raw * lsb_to_dps;
-    *w_y = (float)y_raw * lsb_to_dps;
-    *w_z = (float)z_raw * lsb_to_dps;
+    // LSBs -> DEG/S -> RAD/S
+    *w_x = (float)x_raw * angular_sens_dps;
+    *w_y = (float)y_raw * angular_sens_dps;
+    *w_z = (float)z_raw * angular_sens_dps;
 
     return LSM6DS3TR_OK;
 }

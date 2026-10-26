@@ -1,17 +1,26 @@
 #include "bms.h"
 
+/**************************************** Helper Functions *******************************************/
+/* Linear conversion of numbers from one range to another range */
+/* [in] x - input in in_range */
+/* [in] in_min - minimum input */
+/* [in] in_max - maximum input */
+/* [in] out_min - minimum output */
+/* [in] out_max - maximum output */
+/* [return] converted number */
 static float map(float x, float in_min, float in_max, float out_min, float out_max);
+/*****************************************************************************************************/
 
-status_t bms_init(bms_handle_t * bms, bms_callback_t callback)
+bms_status_t bms_init(bms_handle_t * bms, bms_callback_t callback)
 {
     if (callback == NULL)
-        return STATUS_NULL;
+        return BMS_NULL_CALLBACK;
 
     bms->_callback = callback;
-    return STATUS_OK;
+    return BMS_OK;
 }
 
-status_t bms_read_voltage(bms_handle_t * bms, float norm_adc, float * v)
+bms_status_t bms_read_voltage(const bms_handle_t * bms, float norm_adc, float * v)
 {
 
     switch (bms->type)
@@ -21,21 +30,22 @@ status_t bms_read_voltage(bms_handle_t * bms, float norm_adc, float * v)
         break;
     default:
         *v = -1.0;
-        return STATUS_INVALID;
+        return BMS_INVALID_CFG;
     }
 
     *v += bms->v_offset;        // add measured voltage offset from ADC
 
-    return STATUS_OK;
+    return BMS_OK;
 }
 
-status_t bms_read_percent(bms_handle_t * bms, float norm_adc, float * percent)
+bms_status_t bms_read_percent(const bms_handle_t * bms, float norm_adc, float * percent)
 {
     float v = 0;
     *percent = 0;
 
-    if (bms_read_voltage(bms, norm_adc, &v) != STATUS_OK)
-        return STATUS_ERR;
+    bms_status_t status = bms_read_voltage(bms, norm_adc, &v);
+    if (status != BMS_OK)
+        return status;
 
     switch (bms->type)
     {
@@ -45,7 +55,7 @@ status_t bms_read_percent(bms_handle_t * bms, float norm_adc, float * percent)
         *percent = map(v, lipo_min, lipo_max, 0.0, 100.0);
         break;
     default:
-        return STATUS_ERR;
+        return BMS_INVALID_CFG;
     }
 
     if (*percent > 100.0)
@@ -53,16 +63,17 @@ status_t bms_read_percent(bms_handle_t * bms, float norm_adc, float * percent)
     else if (*percent < 0.0)
         *percent = 0.0;
 
-    return STATUS_OK;
+    return BMS_OK;
 }
 
-status_t bms_update(bms_handle_t * bms, float norm_adc, float * percent)
+bms_status_t bms_update(bms_handle_t * bms, float norm_adc, float * percent)
 {
-    if (bms_read_percent(bms, norm_adc, percent) != STATUS_OK)
-        return STATUS_ERR;
+    bms_status_t status = bms_read_percent(bms, norm_adc, percent);
+    if (status != BMS_OK)
+        return status;
 
     if (bms->_callback == NULL)
-        return STATUS_NULL;
+        return BMS_NULL_CALLBACK;
 
     if (*percent == 100.0)
     {
@@ -73,9 +84,10 @@ status_t bms_update(bms_handle_t * bms, float norm_adc, float * percent)
         bms->_callback(bms, BMS_EVENT_CHARGE_EMPTY);
     }
 
-    return STATUS_OK;
+    return BMS_OK;
 }
 
+/**************************************** Helper Functions *******************************************/
 static float map(float x, float in_min, float in_max, float out_min, float out_max)
 {
     // prevent division by 0
@@ -86,3 +98,4 @@ static float map(float x, float in_min, float in_max, float out_min, float out_m
 
     return (x - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
 }
+/*****************************************************************************************************/

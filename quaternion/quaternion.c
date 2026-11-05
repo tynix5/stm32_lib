@@ -95,17 +95,15 @@ void quat_to_euler(quaternion_t q, float * pitch, float * roll, float * yaw)
 
 void euler_to_quat(float pitch, float roll, float yaw, quaternion_t * q)
 {
-    // needs to be verified
-    // not sure if pitch and yaw need to be switched or not
-    float cos_heading = cosf(pitch);
-    float sin_heading = sinf(pitch);
-    float cos_bank = cosf(roll);
-    float sin_bank = sinf(roll);
-    float cos_attitude = cosf(yaw);
-    float sin_attitude = sinf(yaw);
+    float cos_heading = cosf(pitch / 2.0f);
+    float sin_heading = sinf(pitch / 2.0f);
+    float cos_bank = cosf(roll / 2.0f);
+    float sin_bank = sinf(roll / 2.0f);
+    float cos_attitude = cosf(yaw / 2.0f);
+    float sin_attitude = sinf(yaw / 2.0f);
 
-    q->q1 = cos_heading * cos_bank * cos_attitude - sin_heading * sin_bank * sin_attitude;
-    q->q2 = sin_heading * sin_attitude * cos_bank + cos_heading * cos_attitude * sin_bank;
+    q->q1 = cos_heading * cos_attitude * cos_bank + sin_heading * sin_attitude * sin_bank;
+    q->q2 = cos_heading * cos_attitude * sin_bank - sin_heading * sin_attitude * cos_bank;
     q->q3 = sin_heading * cos_attitude * cos_bank + cos_heading * sin_attitude * sin_bank;
     q->q4 = cos_heading * sin_attitude * cos_bank - sin_heading * cos_attitude * sin_bank;
 }
